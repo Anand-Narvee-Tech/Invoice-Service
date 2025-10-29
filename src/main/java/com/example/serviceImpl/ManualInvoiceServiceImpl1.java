@@ -1,26 +1,34 @@
 package com.example.serviceImpl;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.example.entity.InvoiceItem;
 import com.example.entity.ManualInvoice;
 import com.example.repository.ManualInvoiceRepository;
 import com.example.service.ManualInvoiceService1;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
-    private static final String UPLOAD_DIR = "D:/Invoicing Application/Invoice-Service/uploaded_files/";
+    @Value("${file.upload-dir}")
+    private String uploadDir; // configurable path
 
     private final ManualInvoiceRepository invoiceRepository;
 
@@ -75,7 +83,19 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
     @Override
     public ManualInvoice getInvoiceById(Long id) {
-        return invoiceRepository.findById(id).orElse(null);
+        ManualInvoice invoice = invoiceRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
+
+        if (invoice.getUploadedFileNames() == null) invoice.setUploadedFileNames(new ArrayList<>());
+
+        List<String> existingFiles = new ArrayList<>();
+        for (String fileName : invoice.getUploadedFileNames()) {
+            Path filePath = Paths.get(uploadDir, fileName);
+            if (Files.exists(filePath)) existingFiles.add(fileName);
+        }
+        invoice.setUploadedFileNames(existingFiles);
+
+        return invoice;
     }
 
     @Override
@@ -85,15 +105,30 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
     @Override
     public Page<ManualInvoice> searchInvoices(String keyword, Pageable pageable) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return invoiceRepository.findAll(pageable);
-        }
+        if (keyword == null || keyword.trim().isEmpty()) return invoiceRepository.findAll(pageable);
+        keyword = keyword.trim();
         return invoiceRepository.searchInvoices(keyword, pageable);
     }
 
     @Override
     public void deleteInvoice(Long id) {
-        invoiceRepository.deleteById(id);
+        ManualInvoice invoice = invoiceRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
+
+        if (invoice.getUploadedFileNames() != null) {
+            for (String fileName : invoice.getUploadedFileNames()) {
+                try {
+                    Path filePath = Paths.get(uploadDir, fileName);
+                    Files.deleteIfExists(filePath);
+                } catch (Exception e) {
+                    System.err.println("⚠️ Error deleting file: " + fileName + " - " + e.getMessage());
+                }
+            }
+        }
+
+        if (invoice.getItems() != null) invoice.getItems().clear();
+        invoiceRepository.save(invoice);
+        invoiceRepository.delete(invoice);
     }
 
     @Override
@@ -101,10 +136,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         ManualInvoice existingInvoice = invoiceRepository.findById(id).orElse(null);
         if (existingInvoice == null) return null;
 
-        // Copy all fields from the new invoice
         existingInvoice.updateFrom(invoice);
-
-        // Set the parent reference for items
         existingInvoice.getItems().clear();
         if (invoice.getItems() != null) {
             for (InvoiceItem item : invoice.getItems()) {
@@ -113,36 +145,77 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
             }
         }
 
+        if (invoice.getUploadedFileNames() != null) {
+            if (existingInvoice.getUploadedFileNames() == null) existingInvoice.setUploadedFileNames(new ArrayList<>());
+            existingInvoice.getUploadedFileNames().addAll(invoice.getUploadedFileNames());
+        }
+
         return invoiceRepository.save(existingInvoice);
     }
 
     @Override
     public String storeFile(MultipartFile file) throws IOException {
-        File dir = new File(UPLOAD_DIR);
-        if (!dir.exists()) dir.mkdirs();
+        if (file.isEmpty()) throw new IOException("Uploaded file is empty!");
 
-        String uniqueFilename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        File destFile = new File(dir, uniqueFilename);
-        file.transferTo(destFile);
+        Path dirPath = Paths.get(uploadDir);
+        if (!Files.exists(dirPath)) Files.createDirectories(dirPath);
+
+        String originalFilename = file.getOriginalFilename();
+        String sanitizedFilename = originalFilename.replaceAll("\\s+", "_");
+        String uniqueFilename = System.currentTimeMillis() + "_" + sanitizedFilename;
+
+        Path filePath = dirPath.resolve(uniqueFilename);
+        file.transferTo(filePath);
+
         return uniqueFilename;
     }
 
     @Override
-    public List<String> getAllTemplates() {
-        File dir = new File(UPLOAD_DIR);
-        if (!dir.exists() || dir.listFiles() == null) return List.of();
+    public List<String> storeMultipleFiles(MultipartFile[] files) throws IOException {
+        List<String> savedFiles = new ArrayList<>();
+        if (files == null || files.length == 0) throw new IOException("No files provided!");
 
-        return Arrays.stream(dir.listFiles())
-                .filter(File::isFile)
-                .map(File::getName)
-                .collect(Collectors.toList());
+        for (MultipartFile file : files) {
+            if (!file.isEmpty()) savedFiles.add(storeFile(file));
+        }
+
+        if (savedFiles.isEmpty()) throw new IOException("All files were empty!");
+        return savedFiles;
+    }
+
+    @Override
+    public List<String> getAllTemplates() {
+        Path dirPath = Paths.get(uploadDir);
+        if (!Files.exists(dirPath)) return List.of();
+
+        try {
+            return Files.list(dirPath)
+                    .filter(Files::isRegularFile)
+                    .map(p -> p.getFileName().toString())
+                    .collect(Collectors.toList());
+        } catch (IOException e) {
+            return List.of();
+        }
     }
 
     @Override
     public Resource loadFileAsResource(String filename) throws Exception {
-        File file = new File(UPLOAD_DIR + filename);
-        if (!file.exists()) throw new FileNotFoundException("File Not Found: " + filename);
-
-        return new UrlResource(file.toURI());
+        Path filePath = Paths.get(uploadDir, filename);
+        if (!Files.exists(filePath)) throw new FileNotFoundException("File not found: " + filename);
+        return new UrlResource(filePath.toUri());
     }
+    
+    
+    public Page<ManualInvoice> getAllInvoicesWithPaginationAndSearch(
+            int page, int size, String sortField, String sortDir, String keyword) {
+
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? 
+                     Sort.by(sortField).ascending() : Sort.by(sortField).descending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        return invoiceRepository.searchInvoices(keyword, pageable);
+    }
+    
+    
 }

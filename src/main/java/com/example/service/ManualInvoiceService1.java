@@ -21,9 +21,15 @@ public interface ManualInvoiceService1 {
   
   String storeFile(MultipartFile paramMultipartFile) throws IOException;
   
-  List<String> getAllTemplates();
+  List<String> storeMultipleFiles(MultipartFile[] files) throws IOException;
+  
+//  List<String> getFilesByInvoiceId(Long id) throws IOException;
+  
+  List<String> getAllTemplates(); 
   
   Resource loadFileAsResource(String paramString) throws Exception;
   
   Page<ManualInvoice> searchInvoices(String paramString, Pageable paramPageable);
+  
+  
 }

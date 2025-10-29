@@ -1,14 +1,27 @@
 package com.example.entity;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Table(name = "manual_invoices")
@@ -36,14 +49,23 @@ public class ManualInvoice {
     private String shippingAddress;
     private String salesRep;
     private String invoiceNumber;
+    
+//    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy")
     private LocalDate invoiceDate;
+
+//    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy")
     private LocalDate dueDate;
+    
     private String paymentTerms;
     private String poNumber;
     private String status;
     private String template;
     private String termsAndConditions;
     private String notes;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "manual_invoice_files", joinColumns = @JoinColumn(name = "invoice_id"))
+    @Column(name = "file_name")
+    private List<String> uploadedFileNames = new ArrayList<>();
 
     private Double totalHours = 0.0;
     private Double subtotal = 0.0;
