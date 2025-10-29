@@ -1,13 +1,11 @@
 package com.example.serviceImpl;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -15,7 +13,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -204,4 +204,18 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         if (!Files.exists(filePath)) throw new FileNotFoundException("File not found: " + filename);
         return new UrlResource(filePath.toUri());
     }
+    
+    
+    public Page<ManualInvoice> getAllInvoicesWithPaginationAndSearch(
+            int page, int size, String sortField, String sortDir, String keyword) {
+
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? 
+                     Sort.by(sortField).ascending() : Sort.by(sortField).descending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        return invoiceRepository.searchInvoices(keyword, pageable);
+    }
+    
+    
 }

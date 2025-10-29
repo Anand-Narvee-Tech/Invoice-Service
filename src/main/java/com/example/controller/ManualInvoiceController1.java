@@ -1,5 +1,6 @@
 package com.example.controller;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,11 +16,20 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.common.RestAPIResponse;
 import com.example.entity.ManualInvoice;
+import com.example.repository.ManualInvoiceRepository;
 import com.example.serviceImpl.ManualInvoiceServiceImpl1;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +40,9 @@ public class ManualInvoiceController1 {
 
     @Autowired
     private ManualInvoiceServiceImpl1 serviceImpl1;
+    
+    @Autowired
+    private ManualInvoiceRepository manualInvoiceRepository;
 
     // Save invoice
     @PostMapping("/save")
@@ -161,7 +174,53 @@ public class ManualInvoiceController1 {
                     .body(new RestAPIResponse("Error", "Failed to search Invoices: " + e.getMessage(), null));
         }
     }
+    
+    @GetMapping("/searchAndSort")
+    public ResponseEntity<RestAPIResponse> getManualInvoices(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortField,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        try {
+            // Call with all 5 params
+            Page<ManualInvoice> invoicePage =
+                    serviceImpl1.getAllInvoicesWithPaginationAndSearch(page, size, sortField, sortDir, keyword);
 
+            Map<String, Object> response = new HashMap<>();
+            response.put("invoices", invoicePage.getContent());
+            response.put("currentPage", invoicePage.getNumber());
+            response.put("totalItems", invoicePage.getTotalElements());
+            response.put("totalPages", invoicePage.getTotalPages());
+            response.put("sortField", sortField);
+            response.put("sortDir", sortDir);
+            response.put("keyword", keyword);
+
+            return ResponseEntity.ok(new RestAPIResponse("Success", "Invoices retrieved successfully", response));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new RestAPIResponse("Error", "Failed to fetch Invoices: " + e.getMessage(), null));
+        }
+    }
+
+    
+    @PutMapping("/update-status/{invoiceNumber}")
+    public ResponseEntity<String> updateInvoiceStatus(
+            @PathVariable String invoiceNumber,
+            @RequestBody Map<String, String> payload) {
+
+        String status = payload.get("status");
+        ManualInvoice invoice = manualInvoiceRepository.findByInvoiceNumber(invoiceNumber)
+                .orElseThrow(() -> new RuntimeException("Invoice not found: " + invoiceNumber));
+
+        invoice.setStatus(status);
+        invoice.setUpdatedAt(LocalDateTime.now());
+        manualInvoiceRepository.save(invoice);
+
+        return ResponseEntity.ok("Invoice " + invoiceNumber + " status updated to " + status);
+    }
+    
+    
     // Update invoice
     @PutMapping("/{id}")
     public ResponseEntity<RestAPIResponse> updateInvoice(@PathVariable Long id, @RequestBody ManualInvoice invoice) {
