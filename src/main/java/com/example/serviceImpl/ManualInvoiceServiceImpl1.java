@@ -213,6 +213,10 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
                      Sort.by(sortField).ascending() : Sort.by(sortField).descending();
 
         Pageable pageable = PageRequest.of(page, size, sort);
+        
+        if(keyword == null || keyword.trim().isEmpty()) {
+        	return invoiceRepository.findAll(pageable);
+        }
 
         return invoiceRepository.searchInvoices(keyword, pageable);
     }
