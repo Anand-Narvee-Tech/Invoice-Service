@@ -6,7 +6,11 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
+@Data
+@AllArgsConstructor
 public class RestAPIResponse {
 	public String status;
 	public String message;

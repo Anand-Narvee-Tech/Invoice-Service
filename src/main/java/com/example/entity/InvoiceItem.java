@@ -33,8 +33,9 @@ public class InvoiceItem {
     @NotNull
     private Double amount = 0.0;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invoice_id", nullable = false)
     @JsonBackReference
     private ManualInvoice manualInvoice;
+
 }
