@@ -10,9 +10,13 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,6 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.DTO.VendorAddressDTO;
+import com.example.DTO.VendorDTO;
+import com.example.client.VendorFeignClient;
 import com.example.common.RestAPIResponse;
 import com.example.entity.InvoiceItem;
 import com.example.entity.ManualInvoice;
@@ -50,70 +56,87 @@ public class ManualInvoiceController1 {
     private VendorClientService vendorClientService;
     
     @Autowired
+    private VendorFeignClient vendorFeignClient;
+    
+    @Autowired
     private ObjectMapper objectMapper;
 
+    @PostMapping("/save")
+    public ResponseEntity<RestAPIResponse> saveInvoice(@RequestBody Map<String, Object> payload) {
 
-        @PostMapping("/save")
-        public ResponseEntity<RestAPIResponse> saveInvoice(@RequestBody Map<String, Object> payload) {
-            try {
-                // 1️⃣ Map invoice fields
-                ManualInvoice invoice = objectMapper.convertValue(payload, ManualInvoice.class);
-                invoice.setId(null); // ensure new invoice
+        try {
+            ManualInvoice invoice = objectMapper.convertValue(payload, ManualInvoice.class);
 
-                // 2️⃣ Shipping address
-                Object shippingObj = payload.get("shippingAddress");
-                if (shippingObj instanceof String) {
-                    invoice.setShippingAddress(new VendorAddressDTO((String) shippingObj));
-                } else if (shippingObj instanceof Map) {
-                    VendorAddressDTO shipping = objectMapper.convertValue(shippingObj, VendorAddressDTO.class);
-                    invoice.setShippingAddress(shipping);
-                }
-
-                // 3️⃣ Billing address
-                Object billingObj = payload.get("billingAddress");
-                if (billingObj instanceof Map) {
-                    VendorAddressDTO billing = objectMapper.convertValue(billingObj, VendorAddressDTO.class);
-                    invoice.setBillingAddress(billing);
-                }
-
-                // 4️⃣ Items mapping
-                List<Map<String, Object>> itemsMap = (List<Map<String, Object>>) payload.get("items");
-                List<InvoiceItem> items = new ArrayList<>();
-                if (itemsMap != null) {
-                    for (Map<String, Object> m : itemsMap) {
-                        InvoiceItem item = new InvoiceItem();
-                        item.setId(null); // ensure new insert
-                        item.setName((String) m.get("name"));
-                        item.setDescription((String) m.get("description"));
-                        item.setHours(Double.parseDouble(m.get("hours").toString()));
-                        item.setRate(Double.parseDouble(m.get("rate").toString()));
-                        item.setAmount(item.getHours() * item.getRate());
-                        items.add(item);
-                    }
-                }
-                invoice.setItems(items);
-
-                // 5️⃣ Save invoice
-                ManualInvoice savedInvoice = serviceImpl1.saveInvoice(invoice);
-
-                return ResponseEntity.ok(new RestAPIResponse("Success", "Invoice saved successfully", savedInvoice));
-
-            } catch (Exception e) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(new RestAPIResponse("Error", "Failed to save invoice: " + e.getMessage(), null));
+            //  FIX frontend bug: id = ""
+            if (payload.get("id") == null || payload.get("id").toString().isBlank()) {
+                invoice.setId(null);
             }
+
+            // Shipping address
+            Object shippingObj = payload.get("shippingAddress");
+            if (shippingObj instanceof String) {
+                invoice.setShippingAddress(new VendorAddressDTO((String) shippingObj));
+            } else if (shippingObj instanceof Map) {
+                invoice.setShippingAddress(objectMapper.convertValue(shippingObj, VendorAddressDTO.class));
+            }
+
+            // Billing address
+            Object billingObj = payload.get("billingAddress");
+            if (billingObj instanceof Map) {
+                invoice.setBillingAddress(objectMapper.convertValue(billingObj, VendorAddressDTO.class));
+            }
+
+            // Items
+            List<Map<String, Object>> itemsMap = (List<Map<String, Object>>) payload.get("items");
+            List<InvoiceItem> items = new ArrayList<>();
+
+            if (itemsMap != null) {
+                for (Map<String, Object> m : itemsMap) {
+                    InvoiceItem item = new InvoiceItem();
+                    item.setId(null);
+                    item.setName((String) m.get("name"));
+                    item.setDescription((String) m.get("description"));
+                    item.setHours(Double.valueOf(m.get("hours").toString()));
+                    item.setRate(Double.valueOf(m.get("rate").toString()));
+                    items.add(item);
+                }
+            }
+
+            invoice.setItems(items);
+
+            ManualInvoice saved = serviceImpl1.saveInvoice(invoice);
+
+            return ResponseEntity.ok(
+                    new RestAPIResponse("Success", "Invoice saved successfully", saved));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new RestAPIResponse("Error", e.getMessage(), null));
         }
+    }
+
+    @GetMapping("/exists/{poNumber}")
+    public ResponseEntity<Map<String, Object>> checkPoNumberDuplicate(
+            @PathVariable String poNumber,
+            @RequestParam(required = false) Long invoiceId) {
+
+        boolean exists = serviceImpl1.isPoNumberDuplicate(poNumber, invoiceId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("field", "poNumber");
+        response.put("value", poNumber);
+        response.put("exists", exists);
+        response.put(
+            "message",
+            exists ? "PO Number already exists" : "PO Number is available"
+        );
+
+        return ResponseEntity.ok(response);
+    }
     
-
-
-
-
-
-
-
     // Upload files and attach to invoice
-        @Transactional
     @PostMapping(value = "/upload/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Transactional
     public ResponseEntity<RestAPIResponse> uploadFiles(
             @PathVariable Long id,
             @RequestParam("files") MultipartFile[] files,
@@ -123,23 +146,24 @@ public class ManualInvoiceController1 {
             ManualInvoice invoice = serviceImpl1.getInvoiceById(id);
             if (invoice == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(new RestAPIResponse("Error", "Invoice not found", null));
+                        .body(new RestAPIResponse("Error", "Invoice not found", null)); 
             }
 
             List<String> uploadedFiles = serviceImpl1.storeMultipleFiles(files);
 
-            // Merge existing and new files
+            // Merge uploaded files
             List<String> currentFiles = invoice.getUploadedFileNames();
             if (currentFiles == null) currentFiles = new ArrayList<>();
             currentFiles.addAll(uploadedFiles);
             invoice.setUploadedFileNames(currentFiles);
 
-            serviceImpl1.saveInvoice(invoice);
+            // Save files only (no item validation)
+            serviceImpl1.updateUploadedFilesOnly(invoice, uploadedFiles);
 
-            // Generate downloadable URLs
+            // Generate download URLs
             String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
             List<String> fileUrls = uploadedFiles.stream()
-                    .map(fileName -> baseUrl + "/manual-invoice/view/" + fileName)
+                    .map(f -> baseUrl + "/manual-invoice/view/" + f)
                     .collect(Collectors.toList());
 
             Map<String, Object> responseData = new HashMap<>();
@@ -238,10 +262,18 @@ public class ManualInvoiceController1 {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortField,
             @RequestParam(defaultValue = "asc") String sortDir) {
+
         try {
-            // Call with all 5 params
             Page<ManualInvoice> invoicePage =
-                    serviceImpl1.getAllInvoicesWithPaginationAndSearch(page, size, sortField, sortDir, keyword);
+                    serviceImpl1.getAllInvoicesWithPaginationAndSearch(
+                            page, size, sortField, sortDir, keyword);
+
+            // Ensure shippingAddress never null
+            invoicePage.getContent().forEach(invoice -> {
+                if (invoice.getShippingAddress() == null) {
+                    invoice.setShippingAddress(new VendorAddressDTO());
+                }
+            });
 
             Map<String, Object> response = new HashMap<>();
             response.put("invoices", invoicePage.getContent());
@@ -252,13 +284,15 @@ public class ManualInvoiceController1 {
             response.put("sortDir", sortDir);
             response.put("keyword", keyword);
 
-            return ResponseEntity.ok(new RestAPIResponse("Success", "Invoices retrieved successfully", response));
+            return ResponseEntity.ok(
+                    new RestAPIResponse("Success", "Invoices retrieved successfully", response));
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new RestAPIResponse("Error", "Failed to fetch Invoices: " + e.getMessage(), null));
+                    .body(new RestAPIResponse(
+                            "Error", "Failed to fetch Invoices: " + e.getMessage(), null));
         }
     }
-
 
     
     @PutMapping("/update-status/{invoiceNumber}")

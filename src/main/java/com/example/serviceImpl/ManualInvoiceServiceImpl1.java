@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.DTO.VendorDTO;
@@ -41,24 +42,41 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
     @Autowired
     private VendorFeignClient vendorFeignClient;
 
-
     @Override
     @Transactional
     public ManualInvoice saveInvoice(ManualInvoice request) {
 
         ManualInvoice invoice;
 
-        // 🔥 UPDATE vs CREATE
-        if (request.getId() != null) {
+        // ===== CREATE vs UPDATE =====
+        if (request.getId() != null && request.getId() > 0) {
+
             invoice = invoiceRepository.findById(request.getId())
                     .orElseThrow(() -> new RuntimeException("Invoice not found"));
+
+            // PO number uniqueness (UPDATE)
+            if (invoiceRepository.existsByPoNumberAndIdNot(
+                    request.getPoNumber(), invoice.getId())) {
+                throw new RuntimeException("PO Number already exists");
+            }
+
+            invoice.clearItems();
+
         } else {
+
+            // PO number uniqueness (CREATE)
+            if (invoiceRepository.existsByPoNumber(request.getPoNumber())) {
+                throw new RuntimeException("PO Number already exists");
+            }
+
             invoice = new ManualInvoice();
             invoice.setCreatedAt(LocalDateTime.now());
         }
 
-        // 🔥 Copy allowed fields
+        // ===== Field assignment =====
         invoice.setCustomer(request.getCustomer());
+        invoice.setCustomerEmail(request.getCustomerEmail());
+        invoice.setCustomerPhone(request.getCustomerPhone());
         invoice.setInvoiceDate(request.getInvoiceDate());
         invoice.setPaymentTerms(request.getPaymentTerms());
         invoice.setNotes(request.getNotes());
@@ -70,39 +88,28 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         invoice.setPoNumber(request.getPoNumber());
         invoice.setTemplate(request.getTemplate());
         invoice.setTermsAndConditions(request.getTermsAndConditions());
-        
         invoice.setStatus(request.getStatus());
         invoice.setCurrency(request.getCurrency());
 
-        // 🔥 ALWAYS enrich from vendor-service
-        if (invoice.getCustomer() != null && !invoice.getCustomer().isBlank()) {
-            List<VendorDTO> vendors =
-                    vendorFeignClient.searchVendors(invoice.getCustomer());
-
-            if (!vendors.isEmpty()) {
-                VendorDTO vendor = vendors.get(0);
-                invoice.setCustomer(vendor.getVendorName());
-                invoice.setCustomerEmail(vendor.getEmail());
-                invoice.setCustomerPhone(vendor.getPhoneNumber());
+        // ===== Items =====
+        if (request.getItems() != null) {
+            for (InvoiceItem item : request.getItems()) {
+                invoice.addItem(item);
             }
         }
 
-        // 🔥 Items (always set parent)
-        if (request.getItems() != null) {
-            request.getItems().forEach(item -> item.setManualInvoice(invoice));
-            invoice.setItems(request.getItems());
-        }
-
+        // ===== Calculations =====
         calculateTotalsAndDueDate(invoice);
 
         invoice.setUpdatedAt(LocalDateTime.now());
 
-        // 🔥 Invoice number (create only)
+        // Invoice number (CREATE only)
         if (invoice.getInvoiceNumber() == null) {
             invoice.setInvoiceNumber("INV-" + System.currentTimeMillis());
         }
 
-        return invoiceRepository.saveAndFlush(invoice);
+        //  Important: DO NOT use saveAndFlush()
+        return invoiceRepository.save(invoice);
     }
 
 
@@ -146,6 +153,20 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         }
     
 
+        @Override
+        public boolean isPoNumberDuplicate(String poNumber, Long invoiceId) {
+            if (poNumber == null || poNumber.isBlank()) {
+                return false;
+            }
+            // UPDATE case 
+            if (invoiceId != null) {
+                return invoiceRepository
+                    .existsByPoNumberIgnoreCaseAndIdNot(poNumber, invoiceId);
+            }
+            // CREATE case
+            return invoiceRepository.existsByPoNumberIgnoreCase(poNumber);
+        }
+
     @Override
     public ManualInvoice getInvoiceById(Long id) {
         ManualInvoice invoice = invoiceRepository.findById(id)
@@ -154,7 +175,6 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         if (invoice.getUploadedFileNames() == null) {
             invoice.setUploadedFileNames(new ArrayList<>());
         }
-
         // Verify each file exists
         List<String> existingFiles = new ArrayList<>();
         for (String fileName : invoice.getUploadedFileNames()) {
@@ -164,7 +184,6 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
             }
         }
         invoice.setUploadedFileNames(existingFiles);
-
         return invoice;
     }
 
@@ -181,40 +200,30 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         return invoiceRepository.searchInvoices(keyword, pageable);
     }
 
+    @Transactional
     @Override
     public void deleteInvoice(Long id) {
+
         ManualInvoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
 
-        // Delete uploaded files safely
-        if (invoice.getUploadedFileNames() != null && !invoice.getUploadedFileNames().isEmpty()) {
+        // Delete uploaded files
+        if (invoice.getUploadedFileNames() != null) {
             for (String fileName : invoice.getUploadedFileNames()) {
                 try {
                     File file = new File(UPLOAD_DIR, fileName);
-                    if (file.exists()) {
-                        boolean deleted = file.delete();
-                        if (!deleted) {
-                            System.err.println("⚠️ Warning: Failed to delete file: " + fileName);
-                        }
+                    if (file.exists() && !file.delete()) {
+                        System.err.println("⚠️ Failed to delete file: " + fileName);
                     }
                 } catch (Exception e) {
-                    System.err.println("⚠️ Error deleting file: " + fileName + " - " + e.getMessage());
+                    System.err.println("⚠️ File delete error: " + e.getMessage());
                 }
             }
         }
 
-        // Clear invoice items (avoid foreign key issues)
-        if (invoice.getItems() != null && !invoice.getItems().isEmpty()) {
-            invoice.getItems().clear();
-        }
-
-        // Save invoice after clearing items (ensures safe deletion)
-        invoiceRepository.save(invoice);
-
-        //  Delete invoice
+        // ONE LINE ONLY
         invoiceRepository.delete(invoice);
     }
-
 
 
     @Override
@@ -224,13 +233,21 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         ManualInvoice existingInvoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
 
-        //  Detect customer change
+        // 🔴 PO number duplicate check (exclude current invoice)
+        if (request.getPoNumber() != null &&
+            invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), id)) {
+            throw new RuntimeException("PO Number already exists");
+        }
+
+        // 🔍 Detect customer change
         boolean customerChanged =
                 request.getCustomer() != null &&
                 !request.getCustomer().equals(existingInvoice.getCustomer());
 
-        //  Update basic fields EXCEPT customer/email/phone
+        // 🔄 Update fields
         existingInvoice.setCustomer(request.getCustomer());
+        existingInvoice.setCustomerEmail(request.getCustomerEmail());
+        existingInvoice.setCustomerPhone(request.getCustomerPhone());
         existingInvoice.setInvoiceDate(request.getInvoiceDate());
         existingInvoice.setPaymentTerms(request.getPaymentTerms());
         existingInvoice.setNotes(request.getNotes());
@@ -245,9 +262,9 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         existingInvoice.setStatus(request.getStatus());
         existingInvoice.setCurrency(request.getCurrency());
 
-        //  Vendor enrichment (SAME AS saveInvoice)
+        // 🔁 Vendor enrichment (unchanged)
         if (
-            (customerChanged) ||
+            customerChanged ||
             existingInvoice.getCustomerEmail() == null ||
             existingInvoice.getCustomerEmail().isBlank() ||
             existingInvoice.getCustomerPhone() == null ||
@@ -266,21 +283,19 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
             }
         }
 
-        //  Items update
+        // 🔁 Items update
         existingInvoice.getItems().clear();
         if (request.getItems() != null) {
             for (InvoiceItem item : request.getItems()) {
+                item.setId(null); // ensure INSERT
                 item.setManualInvoice(existingInvoice);
                 existingInvoice.getItems().add(item);
             }
         }
 
-        //  Preserve uploaded files
+        // 📎 Update uploaded files ONLY if provided
         if (request.getUploadedFileNames() != null) {
-            if (existingInvoice.getUploadedFileNames() == null) {
-                existingInvoice.setUploadedFileNames(new ArrayList<>());
-            }
-            existingInvoice.getUploadedFileNames().addAll(request.getUploadedFileNames());
+            existingInvoice.setUploadedFileNames(request.getUploadedFileNames());
         }
 
         calculateTotalsAndDueDate(existingInvoice);
@@ -323,6 +338,19 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         if (savedFiles.isEmpty()) throw new IOException("All files were empty!");
         return savedFiles;
     }
+    
+    @Transactional
+    @Override
+    public ManualInvoice updateUploadedFilesOnly(ManualInvoice invoice, List<String> newFiles) {
+        List<String> files = invoice.getUploadedFileNames();
+        if (files == null) files = new ArrayList<>();
+        files.addAll(newFiles);
+        invoice.setUploadedFileNames(files);
+
+        // Direct repository save, without recalculating items
+        return invoiceRepository.save(invoice);
+    }
+
 
     @Override
     public List<String> getAllTemplates() {
@@ -347,24 +375,92 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
     public Page<ManualInvoice> getAllInvoicesWithPaginationAndSearch(
             int page, int size, String sortField, String sortDir, String keyword) {
 
-        Sort sort = sortDir.equalsIgnoreCase("asc") ? 
-                     Sort.by(sortField).ascending() : Sort.by(sortField).descending();
+        Sort sort = sortDir.equalsIgnoreCase("asc")
+                ? Sort.by(sortField).ascending()
+                : Sort.by(sortField).descending();
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        return invoiceRepository.searchInvoices(keyword, pageable);
+        Page<ManualInvoice> invoicePage =
+                invoiceRepository.searchInvoices(keyword, pageable);
+
+        // ✅ Enrich invoice response
+        invoicePage.getContent().forEach(this::enrichFromVendorService);
+
+        return invoicePage;
     }
 
-	@Override
-	public ManualInvoice updateManualInvoice(Long id, ManualInvoice invoice) {
-		ManualInvoice existingInvoice = invoiceRepository.findById(id)
+    private void enrichFromVendorService(ManualInvoice invoice) {
+
+        // Skip if customer name missing
+        if (!StringUtils.hasText(invoice.getCustomer())) {
+            return;
+        }
+
+        List<VendorDTO> vendors =
+                vendorFeignClient.searchVendors(invoice.getCustomer());
+
+        if (vendors == null || vendors.isEmpty()) {
+            return;
+        }
+
+        VendorDTO vendor = vendors.get(0);
+
+        // ✅ Set billing address if missing
+        if (invoice.getBillingAddress() == null ||
+            invoice.getBillingAddress().getStreet() == null) {
+
+            invoice.setBillingAddress(vendor.getVendorAddress());
+        }
+
+        // ✅ Sync contact info
+        invoice.setCustomerEmail(vendor.getEmail());
+        invoice.setCustomerPhone(vendor.getPhoneNumber());
+    }
+
+
+    @Override
+    @Transactional
+    public ManualInvoice updateManualInvoice(Long id, ManualInvoice request) {
+
+        ManualInvoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
 
-        // Update fields using your entity method
-        existingInvoice.updateFrom(invoice);
-        existingInvoice.setUpdatedAt(LocalDateTime.now());
+        // 🔐 PO number uniqueness check
+        if (invoiceRepository.existsByPoNumberAndIdNot(
+                request.getPoNumber(), invoice.getId())) {
+            throw new RuntimeException("PO Number already exists");
+        }
 
-        return invoiceRepository.save(existingInvoice);
-	}
+        // ===== Update fields explicitly =====
+        invoice.setCustomer(request.getCustomer());
+        invoice.setInvoiceDate(request.getInvoiceDate());
+        invoice.setPaymentTerms(request.getPaymentTerms());
+        invoice.setNotes(request.getNotes());
+        invoice.setTax(request.getTax());
+        invoice.setCredit(request.getCredit());
+        invoice.setBillingAddress(request.getBillingAddress());
+        invoice.setShippingAddress(request.getShippingAddress());
+        invoice.setSalesRep(request.getSalesRep());
+        invoice.setPoNumber(request.getPoNumber());
+        invoice.setTemplate(request.getTemplate());
+        invoice.setTermsAndConditions(request.getTermsAndConditions());
+        invoice.setStatus(request.getStatus());
+        invoice.setCurrency(request.getCurrency());
+
+        // ===== Items (VERY IMPORTANT) =====
+        invoice.clearItems();
+        if (request.getItems() != null) {
+            for (InvoiceItem item : request.getItems()) {
+                invoice.addItem(item);
+            }
+        }
+
+        calculateTotalsAndDueDate(invoice);
+        invoice.setUpdatedAt(LocalDateTime.now());
+
+        return invoiceRepository.save(invoice);
+    }
+
 
 }

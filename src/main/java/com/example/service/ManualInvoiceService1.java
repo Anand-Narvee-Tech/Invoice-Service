@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface ManualInvoiceService1 {
   ManualInvoice saveInvoice(ManualInvoice paramManualInvoice);
+  public boolean isPoNumberDuplicate(String poNumber, Long invoiceId);
   
   ManualInvoice getInvoiceById(Long paramLong);
   
@@ -23,6 +24,7 @@ public interface ManualInvoiceService1 {
   String storeFile(MultipartFile paramMultipartFile) throws IOException;
   
   List<String> storeMultipleFiles(MultipartFile[] files) throws IOException;
+  public ManualInvoice updateUploadedFilesOnly(ManualInvoice invoice, List<String> newFiles) ;
   
 //  List<String> getFilesByInvoiceId(Long id) throws IOException;
   
