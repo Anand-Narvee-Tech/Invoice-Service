@@ -373,22 +373,32 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
     
     
     public Page<ManualInvoice> getAllInvoicesWithPaginationAndSearch(
-            int page, int size, String sortField, String sortDir, String keyword) {
+            int page,
+            int size,
+            String sortField,
+            String sortDir,
+            String keyword) {
 
-        Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? Sort.by(sortField).ascending()
-                : Sort.by(sortField).descending();
+        // Fallback safety
+        if (!"asc".equalsIgnoreCase(sortDir) && !"desc".equalsIgnoreCase(sortDir)) {
+            sortDir = "asc";
+        }
+
+        Sort sort = "desc".equalsIgnoreCase(sortDir)
+                ? Sort.by(sortField).descending()
+                : Sort.by(sortField).ascending();
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<ManualInvoice> invoicePage =
                 invoiceRepository.searchInvoices(keyword, pageable);
 
-        // ✅ Enrich invoice response
+        // Enrich invoice response
         invoicePage.getContent().forEach(this::enrichFromVendorService);
 
         return invoicePage;
     }
+
 
     private void enrichFromVendorService(ManualInvoice invoice) {
 

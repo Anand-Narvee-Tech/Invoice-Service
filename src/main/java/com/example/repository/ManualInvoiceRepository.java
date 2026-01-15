@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.example.entity.ManualInvoice;
 
 @Repository
-public interface ManualInvoiceRepository extends JpaRepository<ManualInvoice, Long> {
+public interface ManualInvoiceRepository extends JpaRepository<ManualInvoice, Long>, JpaSpecificationExecutor<ManualInvoice> {
 
     // Check if an invoice with the given number exists
     boolean existsByInvoiceNumber(String invoiceNumber);
@@ -29,30 +30,56 @@ public interface ManualInvoiceRepository extends JpaRepository<ManualInvoice, Lo
 //    Page<ManualInvoice> searchInvoices(@Param("keyword") String keyword, Pageable pageable);
 //    
     @Query("""
-            SELECT m FROM ManualInvoice m
-            WHERE
-                (:keyword IS NULL OR :keyword = '')
-                OR
-                (
-                    LOWER(COALESCE(m.invoiceNumber, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(COALESCE(m.customer, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(COALESCE(m.paymentTerms, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(COALESCE(m.currency, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(COALESCE(m.poNumber, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(COALESCE(m.salesRep, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(COALESCE(m.status, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-              
-                    OR (
-                        (m.status IS NULL OR m.status = '')
-                        AND LOWER(:keyword) = 'pending'
-                    )                
-                    OR STR(m.invoiceDate) LIKE CONCAT('%', :keyword, '%')
-                    OR STR(m.dueDate) LIKE CONCAT('%', :keyword, '%')
-                    OR STR(m.total) LIKE CONCAT('%', :keyword, '%')
-                )""")
-        Page<ManualInvoice> searchInvoices(
-                @Param("keyword") String keyword,
-                Pageable pageable);
+    		SELECT m FROM ManualInvoice m
+    		WHERE
+    		    :keyword IS NULL OR :keyword = '' OR (
+
+    		       
+    		        LOWER(COALESCE(m.customer, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.customerEmail, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.customerPhone, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.invoiceNumber, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.paymentTerms, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.currency, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.poNumber, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.salesRep, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.status, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.issuedBy, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.notes, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.termsAndConditions, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+    		        
+    		        OR STR(m.invoiceDate) LIKE CONCAT('%', :keyword, '%')
+    		        OR STR(m.dueDate) LIKE CONCAT('%', :keyword, '%')
+    		        OR STR(m.createdAt) LIKE CONCAT('%', :keyword, '%')
+    		        OR STR(m.updatedAt) LIKE CONCAT('%', :keyword, '%')
+
+    		      
+    		        OR STR(m.total) LIKE CONCAT('%', :keyword, '%')
+    		        OR STR(m.subtotal) LIKE CONCAT('%', :keyword, '%')
+    		        OR STR(m.tax) LIKE CONCAT('%', :keyword, '%')
+    		        OR STR(m.amountDue) LIKE CONCAT('%', :keyword, '%')
+    		        OR STR(m.credit) LIKE CONCAT('%', :keyword, '%')
+    		        OR STR(m.totalHours) LIKE CONCAT('%', :keyword, '%')
+
+    		    
+    		        OR LOWER(COALESCE(m.billingAddress.street, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.billingAddress.city, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.billingAddress.state, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.billingAddress.zipCode, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+    		       
+    		        OR LOWER(COALESCE(m.shippingAddress.street, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.shippingAddress.city, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.shippingAddress.state, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		        OR LOWER(COALESCE(m.shippingAddress.zipCode, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    		    )
+    		""")
+    		Page<ManualInvoice> searchInvoices(
+    		        @Param("keyword") String keyword,
+    		        Pageable pageable
+    		);
+
     
     boolean existsByPoNumber(String poNumber);
 

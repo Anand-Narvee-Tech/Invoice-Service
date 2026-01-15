@@ -266,7 +266,12 @@ public class ManualInvoiceController1 {
         try {
             Page<ManualInvoice> invoicePage =
                     serviceImpl1.getAllInvoicesWithPaginationAndSearch(
-                            page, size, sortField, sortDir, keyword);
+                            page,
+                            size,
+                            sortField,
+                            sortDir,
+                            keyword
+                    );
 
             // Ensure shippingAddress never null
             invoicePage.getContent().forEach(invoice -> {
@@ -278,6 +283,7 @@ public class ManualInvoiceController1 {
             Map<String, Object> response = new HashMap<>();
             response.put("invoices", invoicePage.getContent());
             response.put("currentPage", invoicePage.getNumber());
+            response.put("pageSize", invoicePage.getSize());
             response.put("totalItems", invoicePage.getTotalElements());
             response.put("totalPages", invoicePage.getTotalPages());
             response.put("sortField", sortField);
@@ -285,12 +291,21 @@ public class ManualInvoiceController1 {
             response.put("keyword", keyword);
 
             return ResponseEntity.ok(
-                    new RestAPIResponse("Success", "Invoices retrieved successfully", response));
+                    new RestAPIResponse(
+                            "Success",
+                            "Invoices retrieved successfully",
+                            response
+                    )
+            );
 
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new RestAPIResponse(
-                            "Error", "Failed to fetch Invoices: " + e.getMessage(), null));
+                            "Error",
+                            "Failed to fetch invoices: " + e.getMessage(),
+                            null
+                    ));
         }
     }
 
