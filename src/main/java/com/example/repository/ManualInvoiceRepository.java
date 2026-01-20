@@ -1,5 +1,7 @@
 package com.example.repository;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -91,4 +93,27 @@ public interface ManualInvoiceRepository extends JpaRepository<ManualInvoice, Lo
     boolean existsByPoNumberIgnoreCaseAndIdNot(String poNumber, Long id);
     
     boolean existsByPoNumberIgnoreCase(String poNumber);
+    
+    
+    @Query("SELECT COUNT(i) FROM ManualInvoice i")
+    Long getTotalInvoiceCount();
+
+    @Query("SELECT COUNT(i) FROM ManualInvoice i WHERE LOWER(i.status) = 'paid'")
+    Long getPaidInvoiceCount();
+
+    @Query("SELECT COUNT(i) FROM ManualInvoice i WHERE LOWER(i.status) = 'pending'")
+    Long getPendingInvoiceCount();
+    
+    @Query("SELECT COUNT(i) FROM ManualInvoice i WHERE LOWER(i.status) = 'overdue'")
+    Long getOverdueInvoiceCount(); 
+    
+ // Count today's overdue invoices (case-insensitive)
+    @Query("SELECT COUNT(i) FROM ManualInvoice i " +
+           "WHERE LOWER(i.status) = 'overdue' AND i.dueDate = :today")
+    Long countOverdueInvoicesForToday(@Param("today") LocalDate today);
+
+    // Fetch today's overdue invoices for popup (case-insensitive)
+    @Query("SELECT i FROM ManualInvoice i LEFT JOIN FETCH i.items " +
+           "WHERE LOWER(i.status) = 'overdue' AND i.dueDate = :today")
+    List<ManualInvoice> findOverdueInvoicesForToday(@Param("today") LocalDate today);
 }

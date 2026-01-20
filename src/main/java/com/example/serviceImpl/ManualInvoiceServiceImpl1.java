@@ -3,10 +3,13 @@ package com.example.serviceImpl;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,6 +81,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         invoice.setCustomerEmail(request.getCustomerEmail());
         invoice.setCustomerPhone(request.getCustomerPhone());
         invoice.setInvoiceDate(request.getInvoiceDate());
+        invoice.setDueDate(request.getDueDate());
         invoice.setPaymentTerms(request.getPaymentTerms());
         invoice.setNotes(request.getNotes());
         invoice.setTax(request.getTax());
@@ -142,14 +146,14 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
             invoice.setAmountDue(invoice.getTotal() - credit);
 
             // Calculate due date
-            if (invoice.getInvoiceDate() != null && invoice.getPaymentTerms() != null) {
-                try {
-                    int days = Integer.parseInt(invoice.getPaymentTerms().replaceAll("[^0-9]", ""));
-                    invoice.setDueDate(invoice.getInvoiceDate().plusDays(days));
-                } catch (Exception e) {
-                    invoice.setDueDate(invoice.getInvoiceDate().plusDays(30));
-                }
-            }
+//            if (invoice.getInvoiceDate() != null && invoice.getPaymentTerms() != null) {
+//                try {
+//                    int days = Integer.parseInt(invoice.getPaymentTerms().replaceAll("[^0-9]", ""));
+//                    invoice.setDueDate(invoice.getInvoiceDate().plusDays(days));
+//                } catch (Exception e) {
+//                    invoice.setDueDate(invoice.getInvoiceDate().plusDays(30));
+//                }
+//            }
         }
     
 
@@ -249,6 +253,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         existingInvoice.setCustomerEmail(request.getCustomerEmail());
         existingInvoice.setCustomerPhone(request.getCustomerPhone());
         existingInvoice.setInvoiceDate(request.getInvoiceDate());
+        existingInvoice.setDueDate(request.getDueDate());
         existingInvoice.setPaymentTerms(request.getPaymentTerms());
         existingInvoice.setNotes(request.getNotes());
         existingInvoice.setTax(request.getTax());
@@ -472,5 +477,25 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         return invoiceRepository.save(invoice);
     }
 
+    
+    
+    @Override
+    public Map<String, Long> getInvoiceCounts() {
+        Map<String, Long> counts = new HashMap<>();
+        counts.put("total", invoiceRepository.getTotalInvoiceCount());
+        counts.put("paid", invoiceRepository.getPaidInvoiceCount());
+        counts.put("pending", invoiceRepository.getPendingInvoiceCount());
+        counts.put("OverDue", invoiceRepository.getOverdueInvoiceCount());
+        return counts;
+    }
+    
+    @Override
+    public Long getTodayOverdueCount() {
+        return invoiceRepository.countOverdueInvoicesForToday(LocalDate.now());
+    }
 
+    @Override
+    public List<ManualInvoice> getTodayOverdueInvoices() {
+        return invoiceRepository.findOverdueInvoicesForToday(LocalDate.now());
+    }
 }

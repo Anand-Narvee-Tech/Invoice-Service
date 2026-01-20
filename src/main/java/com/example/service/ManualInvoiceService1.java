@@ -1,12 +1,15 @@
 package com.example.service;
 
-import com.example.entity.ManualInvoice;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.example.entity.ManualInvoice;
 
 public interface ManualInvoiceService1 {
   ManualInvoice saveInvoice(ManualInvoice paramManualInvoice);
@@ -34,6 +37,10 @@ public interface ManualInvoiceService1 {
   
   Page<ManualInvoice> searchInvoices(String paramString, Pageable paramPageable);
   
+  public Map<String, Long> getInvoiceCounts();
   
+  public Long getTodayOverdueCount() ;
+  
+  public List<ManualInvoice> getTodayOverdueInvoices();
 }
 

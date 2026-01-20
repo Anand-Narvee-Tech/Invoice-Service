@@ -309,6 +309,33 @@ public class ManualInvoiceController1 {
         }
     }
 
+    @GetMapping("/count")
+    public ResponseEntity<RestAPIResponse> getInvoiceCounts() {
+        Map<String, Long> counts = serviceImpl1.getInvoiceCounts();
+        return ResponseEntity.ok(
+                new RestAPIResponse("success", "Invoice counts fetched", counts)
+        );
+    }
+    
+    
+ // ---------------- Today's overdue count ----------------
+    @GetMapping("/today-overdue-count")
+    public ResponseEntity<RestAPIResponse> getTodayOverdueCount() {
+        Long count = serviceImpl1.getTodayOverdueCount();
+        return ResponseEntity.ok(
+                new RestAPIResponse("Success", "Today's overdue count fetched", count)
+        );
+    }
+
+    // ---------------- Today's overdue invoices for popup ----------------
+    @GetMapping("/today-overdue-invoices")
+    public ResponseEntity<RestAPIResponse> getTodayOverdueInvoices() {
+        List<ManualInvoice> invoices = serviceImpl1.getTodayOverdueInvoices();
+        return ResponseEntity.ok(
+                new RestAPIResponse("Success", "Today's overdue invoices fetched", invoices)
+        );
+    }
+    
     
     @PutMapping("/update-status/{invoiceNumber}")
     public ResponseEntity<String> updateInvoiceStatus(
