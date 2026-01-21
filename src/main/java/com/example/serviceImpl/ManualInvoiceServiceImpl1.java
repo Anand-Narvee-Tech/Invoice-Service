@@ -155,6 +155,14 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 //                }
 //            }
         }
+        
+        
+        
+     // ✅ New method: fetch by invoiceNumber
+        public ManualInvoice getInvoiceByNumber(String invoiceNumber) {
+            return invoiceRepository.findByInvoiceNumber(invoiceNumber)
+                    .orElseThrow(() -> new RuntimeException("Invoice not found with number: " + invoiceNumber));
+        }
     
 
         @Override

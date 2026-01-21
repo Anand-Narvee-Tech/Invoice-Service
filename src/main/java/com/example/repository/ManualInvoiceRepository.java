@@ -19,6 +19,8 @@ public interface ManualInvoiceRepository extends JpaRepository<ManualInvoice, Lo
 
     // Check if an invoice with the given number exists
     boolean existsByInvoiceNumber(String invoiceNumber);
+    
+  
 
     // Search invoices by keyword in multiple fields
 //    @Query("SELECT m FROM ManualInvoice m " +
