@@ -8,7 +8,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.example.DTO.UserDTO;
@@ -34,15 +33,17 @@ public class InvoiceEmailServiceImpl implements InvoiceEmailService{
 
     @Override
     public void sendOverdueInvoiceEmail(String authHeader, String invoiceNumber) {
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new RuntimeException("Missing or invalid Authorization header");
         }
 
         String token = authHeader.substring(7).trim();
 
-        // 1️⃣ Fetch logged-in user info from Login Service
+        // 1️ Fetch logged-in user info from Login Service
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + token);
+        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         ResponseEntity<Map> response = restTemplate.exchange(
@@ -59,23 +60,39 @@ public class InvoiceEmailServiceImpl implements InvoiceEmailService{
 
         Map<String, Object> userData = (Map<String, Object>) body.get("data");
 
+        // 2️ Extract role name safely
+        Map<String, Object> roleData =
+                (Map<String, Object>) userData.get("role");
+
+        String roleName = roleData != null
+                ? (String) roleData.get("roleName")
+                : "Employee";
+
+        // 3️ Build UserDTO
         UserDTO loggedInUser = new UserDTO(
                 (String) userData.get("email"),
                 (String) userData.get("fullName"),
                 (String) userData.get("mobileNumber"),
                 (String) userData.get("companyName"),
-                (String) userData.get("organizationName")
+                (String) userData.get("organizationName"),
+                roleName
         );
 
-        // 2️⃣ Fetch invoice by invoiceNumber
+        // 4️Fetch invoice
         ManualInvoice invoice = invoiceService.getInvoiceByNumber(invoiceNumber);
         if (invoice == null) {
             throw new RuntimeException("Invoice not found with number: " + invoiceNumber);
         }
 
-        // 3️⃣ Send email
+        // 5️ Send email
         emailService.sendOverdueInvoiceEmail(loggedInUser, invoice);
 
-        log.info("Overdue email sent for invoice {} by user {}", invoice.getInvoiceNumber(), loggedInUser.getEmail());
+        log.info(
+            "Overdue email sent. Invoice={}, From={}, Role={}",
+            invoice.getInvoiceNumber(),
+            loggedInUser.getEmail(),
+            roleName
+        );
     }
+
 }
