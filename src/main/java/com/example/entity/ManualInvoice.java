@@ -32,6 +32,8 @@ public class ManualInvoice {
         allocationSize = 1
     )
     private Long id;
+    
+    private Long customerVendorId;
 
     // Customer info
     private String customer;

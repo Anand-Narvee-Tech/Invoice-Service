@@ -134,6 +134,12 @@ public class ManualInvoiceController1 {
         return ResponseEntity.ok(response);
     }
     
+    @GetMapping("/invoices/count-by-vendor/{vendorId}")
+    public ResponseEntity<Long> countInvoicesByVendor(@PathVariable Long vendorId) {
+        long count = manualInvoiceRepository.countByCustomerVendorId(vendorId);
+        return ResponseEntity.ok(count);
+    }
+    
     // Upload files and attach to invoice
     @PostMapping(value = "/upload/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Transactional
@@ -158,7 +164,7 @@ public class ManualInvoiceController1 {
             invoice.setUploadedFileNames(currentFiles);
 
             // Save files only (no item validation)
-            serviceImpl1.updateUploadedFilesOnly(invoice, uploadedFiles);
+            serviceImpl1.updateUploadedFilesOnly(invoice);
 
             // Generate download URLs
             String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
@@ -387,6 +393,29 @@ public class ManualInvoiceController1 {
                     .body(new RestAPIResponse("Error", "Failed to update invoice: " + e.getMessage(), null));
         }
     }
+    
+    
+    @PutMapping("/invoices/update-vendor")
+    public ResponseEntity<Void> updateInvoicesByVendor(@RequestBody VendorDTO vendorDTO) {
+
+        List<ManualInvoice> invoices =
+                manualInvoiceRepository.findByCustomerVendorId(vendorDTO.getVendorId());
+
+        for (ManualInvoice invoice : invoices) {
+
+            // Vendor snapshot update
+            invoice.setCustomer(vendorDTO.getVendorName());
+            invoice.setCustomerEmail(vendorDTO.getEmail());
+
+            // Address snapshot update
+            invoice.setBillingAddress(vendorDTO.getVendorAddress());
+            invoice.setShippingAddress(vendorDTO.getVendorAddress());
+        }
+
+        manualInvoiceRepository.saveAll(invoices);
+        return ResponseEntity.ok().build();
+    }
+
 
     // Delete invoice
     @DeleteMapping("/{id}")

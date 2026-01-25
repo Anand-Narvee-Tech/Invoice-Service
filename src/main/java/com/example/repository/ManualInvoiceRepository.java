@@ -20,6 +20,8 @@ public interface ManualInvoiceRepository extends JpaRepository<ManualInvoice, Lo
     // Check if an invoice with the given number exists
     boolean existsByInvoiceNumber(String invoiceNumber);
     
+    List<ManualInvoice> findByCustomerVendorId(Long vendorId);
+    
   
 
     // Search invoices by keyword in multiple fields
@@ -84,6 +86,7 @@ public interface ManualInvoiceRepository extends JpaRepository<ManualInvoice, Lo
     		        Pageable pageable
     		);
 
+    long countByCustomerVendorId(Long vendorId);
     
     boolean existsByPoNumber(String poNumber);
 

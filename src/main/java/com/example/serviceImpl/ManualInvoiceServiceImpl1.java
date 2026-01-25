@@ -1,8 +1,14 @@
 package com.example.serviceImpl;
 
+
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -13,6 +19,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
@@ -31,13 +38,16 @@ import com.example.repository.ManualInvoiceRepository;
 import com.example.service.ManualInvoiceService1;
 
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 
 
 @Service
+@Slf4j
 public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
-    private static final String UPLOAD_DIR = "C:\\Users\\admin\\git\\Invoice-Service\\uploads";
+	@Value("${file.upload-dir}")
+	private String uploadDir;
 
     @Autowired
     private ManualInvoiceRepository invoiceRepository;
@@ -94,6 +104,19 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         invoice.setTermsAndConditions(request.getTermsAndConditions());
         invoice.setStatus(request.getStatus());
         invoice.setCurrency(request.getCurrency());
+        
+        if (request.getCustomer() != null && !request.getCustomer().isBlank()) {
+        	List<VendorDTO> vendors = vendorFeignClient.searchVendors(request.getCustomer());
+        	if(!vendors.isEmpty()) {
+        		VendorDTO vendor = vendors.get(0);
+        		invoice.setCustomerVendorId(vendor.getVendorId());
+        		invoice.setCustomer(vendor.getVendorName());
+                invoice.setCustomerEmail(vendor.getEmail());
+                invoice.setCustomerPhone(vendor.getPhoneNumber());
+        	}else {
+                throw new RuntimeException("Vendor not found for customer: " + request.getCustomer());
+            }
+        }
 
         // ===== Items =====
         if (request.getItems() != null) {
@@ -179,25 +202,26 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
             return invoiceRepository.existsByPoNumberIgnoreCase(poNumber);
         }
 
-    @Override
-    public ManualInvoice getInvoiceById(Long id) {
-        ManualInvoice invoice = invoiceRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
+        @Override
+        public ManualInvoice getInvoiceById(Long id) {
+            ManualInvoice invoice = invoiceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
 
-        if (invoice.getUploadedFileNames() == null) {
-            invoice.setUploadedFileNames(new ArrayList<>());
-        }
-        // Verify each file exists
-        List<String> existingFiles = new ArrayList<>();
-        for (String fileName : invoice.getUploadedFileNames()) {
-            File file = new File(UPLOAD_DIR, fileName);
-            if (file.exists()) {
-                existingFiles.add(fileName);
+            if (invoice.getUploadedFileNames() == null) {
+                invoice.setUploadedFileNames(new ArrayList<>());
             }
+
+            List<String> existingFiles = new ArrayList<>();
+            for (String fileName : invoice.getUploadedFileNames()) {
+                File file = new File(uploadDir, fileName);
+                if (file.exists()) {
+                    existingFiles.add(fileName);
+                }
+            }
+            invoice.setUploadedFileNames(existingFiles);
+            return invoice;
         }
-        invoice.setUploadedFileNames(existingFiles);
-        return invoice;
-    }
+
 
     @Override
     public List<ManualInvoice> getAllInvoices() {
@@ -223,7 +247,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         if (invoice.getUploadedFileNames() != null) {
             for (String fileName : invoice.getUploadedFileNames()) {
                 try {
-                    File file = new File(UPLOAD_DIR, fileName);
+                    File file = new File(uploadDir, fileName);
                     if (file.exists() && !file.delete()) {
                         System.err.println("⚠️ Failed to delete file: " + fileName);
                     }
@@ -242,21 +266,22 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
     @Transactional
     public ManualInvoice updateInvoice(Long id, ManualInvoice request) {
 
+        // 1️⃣ Fetch existing invoice
         ManualInvoice existingInvoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
 
-        // 🔴 PO number duplicate check (exclude current invoice)
+        // 2️⃣ PO Number uniqueness check (exclude current invoice)
         if (request.getPoNumber() != null &&
             invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), id)) {
             throw new RuntimeException("PO Number already exists");
         }
 
-        // 🔍 Detect customer change
+        // 3️⃣ Detect if customer/vendor has changed
         boolean customerChanged =
-                request.getCustomer() != null &&
-                !request.getCustomer().equals(existingInvoice.getCustomer());
+                request.getCustomerVendorId() != null &&
+                !request.getCustomerVendorId().equals(existingInvoice.getCustomerVendorId());
 
-        // 🔄 Update fields
+        // 4️⃣ Update basic fields
         existingInvoice.setCustomer(request.getCustomer());
         existingInvoice.setCustomerEmail(request.getCustomerEmail());
         existingInvoice.setCustomerPhone(request.getCustomerPhone());
@@ -264,6 +289,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         existingInvoice.setDueDate(request.getDueDate());
         existingInvoice.setPaymentTerms(request.getPaymentTerms());
         existingInvoice.setNotes(request.getNotes());
+        existingInvoice.setCustomerVendorId(request.getCustomerVendorId());
         existingInvoice.setTax(request.getTax());
         existingInvoice.setCredit(request.getCredit());
         existingInvoice.setBillingAddress(request.getBillingAddress());
@@ -275,73 +301,82 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         existingInvoice.setStatus(request.getStatus());
         existingInvoice.setCurrency(request.getCurrency());
 
-        // 🔁 Vendor enrichment (unchanged)
-        if (
-            customerChanged ||
-            existingInvoice.getCustomerEmail() == null ||
-            existingInvoice.getCustomerEmail().isBlank() ||
-            existingInvoice.getCustomerPhone() == null ||
-            existingInvoice.getCustomerPhone().isBlank()
-        ) {
-            if (existingInvoice.getCustomer() != null && !existingInvoice.getCustomer().isBlank()) {
-                List<VendorDTO> vendors =
-                        vendorFeignClient.searchVendors(existingInvoice.getCustomer());
+        // 5️⃣ Vendor enrichment via Feign (using vendorId for accuracy)
+        if (customerChanged || 
+            existingInvoice.getCustomerEmail() == null || existingInvoice.getCustomerEmail().isBlank() ||
+            existingInvoice.getCustomerPhone() == null || existingInvoice.getCustomerPhone().isBlank()) {
 
-                if (!vendors.isEmpty()) {
-                    VendorDTO vendor = vendors.get(0);
-                    existingInvoice.setCustomer(vendor.getVendorName());
-                    existingInvoice.setCustomerEmail(vendor.getEmail());
-                    existingInvoice.setCustomerPhone(vendor.getPhoneNumber());
+            if (existingInvoice.getCustomerVendorId() != null) {
+                try {
+                    VendorDTO vendor = vendorFeignClient.getVendorById(existingInvoice.getCustomerVendorId());
+                    if (vendor != null) {
+                        existingInvoice.setCustomer(vendor.getVendorName());
+                        existingInvoice.setCustomerEmail(vendor.getEmail());
+                        existingInvoice.setCustomerPhone(vendor.getPhoneNumber());
+                        existingInvoice.setBillingAddress(vendor.getVendorAddress());
+                        existingInvoice.setShippingAddress(vendor.getVendorAddress());
+                    }
+                } catch (Exception e) {
+                    // Log but don’t block update
+                    log.warn("Vendor enrichment failed for vendorId {}: {}", existingInvoice.getCustomerVendorId(), e.getMessage());
                 }
             }
         }
 
-        // 🔁 Items update
+        // 6️ Update invoice items
         existingInvoice.getItems().clear();
         if (request.getItems() != null) {
             for (InvoiceItem item : request.getItems()) {
-                item.setId(null); // ensure INSERT
+                item.setId(null); // Ensure insert
                 item.setManualInvoice(existingInvoice);
                 existingInvoice.getItems().add(item);
             }
         }
 
-        // 📎 Update uploaded files ONLY if provided
+        // 7️ Update uploaded files if provided
         if (request.getUploadedFileNames() != null) {
             existingInvoice.setUploadedFileNames(request.getUploadedFileNames());
         }
 
+        // 8️ Recalculate totals
         calculateTotalsAndDueDate(existingInvoice);
 
+        // 9️ Update timestamp
         existingInvoice.setUpdatedAt(LocalDateTime.now());
 
+        //  Save and return
         return invoiceRepository.save(existingInvoice);
     }
 
 
-
     @Override
     public String storeFile(MultipartFile file) throws IOException {
-        if (file.isEmpty()) throw new IOException("Uploaded file is empty!");
+        if (file.isEmpty()) {
+            throw new IOException("Uploaded file is empty");
+        }
 
-        File dir = new File(UPLOAD_DIR);
-        if (!dir.exists()) dir.mkdirs();
+        Path uploadPath = Paths.get(uploadDir).normalize();
+        Files.createDirectories(uploadPath);
 
-        String originalFilename = file.getOriginalFilename();
-        String sanitizedFilename = originalFilename.replaceAll("\\s+", "_");
-        String uniqueFilename = System.currentTimeMillis() + "_" + sanitizedFilename;
+        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+        if (originalFileName.contains("..")) {
+            throw new IOException("Invalid filename: " + originalFileName);
+        }
 
-        File destFile = new File(dir, uniqueFilename);
-        file.transferTo(destFile);
+        String uniqueFileName = System.currentTimeMillis() + "_" + originalFileName.replaceAll("\\s+", "_");
+        Path targetLocation = uploadPath.resolve(uniqueFileName);
 
-        return uniqueFilename;
+        Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+
+        return uniqueFileName;
     }
+
+
 
     @Override
     public List<String> storeMultipleFiles(MultipartFile[] files) throws IOException {
         List<String> savedFiles = new ArrayList<>();
         if (files == null || files.length == 0) throw new IOException("No files provided!");
-
         for (MultipartFile file : files) {
             if (!file.isEmpty()) {
                 String savedFilename = storeFile(file);
@@ -351,23 +386,19 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         if (savedFiles.isEmpty()) throw new IOException("All files were empty!");
         return savedFiles;
     }
+
     
     @Transactional
     @Override
-    public ManualInvoice updateUploadedFilesOnly(ManualInvoice invoice, List<String> newFiles) {
-        List<String> files = invoice.getUploadedFileNames();
-        if (files == null) files = new ArrayList<>();
-        files.addAll(newFiles);
-        invoice.setUploadedFileNames(files);
-
-        // Direct repository save, without recalculating items
+    public ManualInvoice updateUploadedFilesOnly(ManualInvoice invoice) {
         return invoiceRepository.save(invoice);
     }
 
 
+
     @Override
     public List<String> getAllTemplates() {
-        File dir = new File(UPLOAD_DIR);
+        File dir = new File(uploadDir);
         if (!dir.exists() || dir.listFiles() == null) return List.of();
 
         return Arrays.stream(dir.listFiles())
@@ -378,7 +409,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
     @Override
     public Resource loadFileAsResource(String filename) throws Exception {
-        File file = new File(UPLOAD_DIR, filename);
+        File file = new File(uploadDir, filename);
         if (!file.exists()) throw new FileNotFoundException("File not found: " + filename);
         return new UrlResource(file.toURI());
     }

@@ -27,7 +27,7 @@ public interface ManualInvoiceService1 {
   String storeFile(MultipartFile paramMultipartFile) throws IOException;
   
   List<String> storeMultipleFiles(MultipartFile[] files) throws IOException;
-  public ManualInvoice updateUploadedFilesOnly(ManualInvoice invoice, List<String> newFiles) ;
+  public ManualInvoice updateUploadedFilesOnly(ManualInvoice invoice) ;
   
 //  List<String> getFilesByInvoiceId(Long id) throws IOException;
   
