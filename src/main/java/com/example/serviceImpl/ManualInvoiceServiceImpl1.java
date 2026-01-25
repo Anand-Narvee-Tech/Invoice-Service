@@ -230,9 +230,8 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
     @Override
     public Page<ManualInvoice> searchInvoices(String keyword, Pageable pageable) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return invoiceRepository.findAll(pageable);
-        }
+        if (keyword == null || keyword.trim().isEmpty()) return invoiceRepository.findAll(pageable);
+        keyword = keyword.trim();
         return invoiceRepository.searchInvoices(keyword, pageable);
     }
 
@@ -401,10 +400,23 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
         File dir = new File(uploadDir);
         if (!dir.exists() || dir.listFiles() == null) return List.of();
 
-        return Arrays.stream(dir.listFiles())
-                .filter(File::isFile)
-                .map(File::getName)
-                .collect(Collectors.toList());
+        if (savedFiles.isEmpty()) throw new IOException("All files were empty!");
+        return savedFiles;
+    }
+
+    @Override
+    public List<String> getAllTemplates() {
+        Path dirPath = Paths.get(uploadDir);
+        if (!Files.exists(dirPath)) return List.of();
+
+        try {
+            return Files.list(dirPath)
+                    .filter(Files::isRegularFile)
+                    .map(p -> p.getFileName().toString())
+                    .collect(Collectors.toList());
+        } catch (IOException e) {
+            return List.of();
+        }
     }
 
     @Override

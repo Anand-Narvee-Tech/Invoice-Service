@@ -43,8 +43,13 @@ public class ManualInvoice {
     // Invoice info
     private String template;
     private String invoiceNumber;
+    
+//    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy")
     private LocalDate invoiceDate;
+
+//    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy")
     private LocalDate dueDate;
+    
     private String paymentTerms;
 
     @Column(name = "po_number", nullable = false)
@@ -54,6 +59,10 @@ public class ManualInvoice {
     private String status;
     private String termsAndConditions;
     private String notes;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "manual_invoice_files", joinColumns = @JoinColumn(name = "invoice_id"))
+    @Column(name = "file_name")
+    private List<String> uploadedFileNames = new ArrayList<>();
 
     // Financial info
     private Double totalHours = 0.0;
