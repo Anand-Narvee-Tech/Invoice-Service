@@ -5,49 +5,43 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.example.DTO.VendorAddressDTO;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.CollectionTable;
-import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "manual_invoices")
+@Table(
+    name = "manual_invoices",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = "po_number")
+    }
+)
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class ManualInvoice {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "manual_invoice_seq")
+    @SequenceGenerator(
+        name = "manual_invoice_seq",
+        sequenceName = "manual_invoice_seq",
+        allocationSize = 1
+    )
     private Long id;
+    
+    private Long customerVendorId;
 
-    private String vendorId;
-    private String companyName;
-    private String companyEmail;
-    private String companyPhone;
-    private String companyAddress;
-    private String companyUrl;
+    // Customer info
     private String customer;
-    private String clientEmail;
     private String customerEmail;
     private String customerPhone;
-    private String clientPhone;
-    private String billingAddress;
-    private String shippingAddress;
-    private String salesRep;
+
+    // Invoice info
+    private String template;
     private String invoiceNumber;
     
 //    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy")
@@ -57,9 +51,12 @@ public class ManualInvoice {
     private LocalDate dueDate;
     
     private String paymentTerms;
+
+    @Column(name = "po_number", nullable = false)
     private String poNumber;
+
+    private String salesRep;
     private String status;
-    private String template;
     private String termsAndConditions;
     private String notes;
     @ElementCollection(fetch = FetchType.EAGER)
@@ -67,59 +64,77 @@ public class ManualInvoice {
     @Column(name = "file_name")
     private List<String> uploadedFileNames = new ArrayList<>();
 
+    // Financial info
     private Double totalHours = 0.0;
     private Double subtotal = 0.0;
     private Double tax = 0.0;
     private Double total = 0.0;
     private Double amountDue = 0.0;
     private Double credit = 0.0;
-
     private String currency;
     private String issuedBy;
+
+    // Timestamps
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "manualInvoice", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
-    private List<InvoiceItem> items;
+    // Billing Address
+    @Embedded
+    @AttributeOverrides({
+        @AttributeOverride(name = "street", column = @Column(name = "billing_street")),
+        @AttributeOverride(name = "suite", column = @Column(name = "billing_suite")),
+        @AttributeOverride(name = "city", column = @Column(name = "billing_city")),
+        @AttributeOverride(name = "state", column = @Column(name = "billing_state")),
+        @AttributeOverride(name = "zipCode", column = @Column(name = "billing_zip_code"))
+    })
+    private VendorAddressDTO billingAddress;
 
-    /**
-     * Updates the current ManualInvoice with values from another invoice.
-     * Does not update the id.
-     */
-    public void updateFrom(ManualInvoice invoice) {
-        this.vendorId = invoice.getVendorId();
-        this.companyName = invoice.getCompanyName();
-        this.companyEmail = invoice.getCompanyEmail();
-        this.companyPhone = invoice.getCompanyPhone();
-        this.companyAddress = invoice.getCompanyAddress();
-        this.companyUrl = invoice.getCompanyUrl();
-        this.customer = invoice.getCustomer();
-        this.clientEmail = invoice.getClientEmail();
-        this.customerEmail = invoice.getCustomerEmail();
-        this.customerPhone = invoice.getCustomerPhone();
-        this.clientPhone = invoice.getClientPhone();
-        this.billingAddress = invoice.getBillingAddress();
-        this.shippingAddress = invoice.getShippingAddress();
-        this.salesRep = invoice.getSalesRep();
-        this.invoiceNumber = invoice.getInvoiceNumber();
-        this.invoiceDate = invoice.getInvoiceDate();
-        this.dueDate = invoice.getDueDate();
-        this.paymentTerms = invoice.getPaymentTerms();
-        this.poNumber = invoice.getPoNumber();
-        this.status = invoice.getStatus();
-        this.template = invoice.getTemplate();
-        this.termsAndConditions = invoice.getTermsAndConditions();
-        this.notes = invoice.getNotes();
-        this.totalHours = invoice.getTotalHours();
-        this.subtotal = invoice.getSubtotal();
-        this.tax = invoice.getTax();
-        this.total = invoice.getTotal();
-        this.amountDue = invoice.getAmountDue();
-        this.credit = invoice.getCredit();
-        this.currency = invoice.getCurrency();
-        this.issuedBy = invoice.getIssuedBy();
-        this.createdAt = invoice.getCreatedAt();
-        this.updatedAt = invoice.getUpdatedAt();
+    // Shipping Address
+    @Embedded
+    @AttributeOverrides({
+        @AttributeOverride(name = "street", column = @Column(name = "shipping_street")),
+        @AttributeOverride(name = "suite", column = @Column(name = "shipping_suite")),
+        @AttributeOverride(name = "city", column = @Column(name = "shipping_city")),
+        @AttributeOverride(name = "state", column = @Column(name = "shipping_state")),
+        @AttributeOverride(name = "zipCode", column = @Column(name = "shipping_zip_code"))
+    })
+    private VendorAddressDTO shippingAddress;
+
+    // Items
+    @OneToMany(
+        mappedBy = "manualInvoice",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    @NotEmpty(message = "Invoice must contain at least one item")
+    @Valid
+    private List<InvoiceItem> items = new ArrayList<>();
+
+    // Uploaded files
+    @ElementCollection
+    private List<String> uploadedFileNames = new ArrayList<>();
+
+    // ================= Helper Methods =================
+
+    public void addItem(InvoiceItem item) {
+        items.add(item);
+        item.setManualInvoice(this);
     }
+
+    public void clearItems() {
+        items.clear();
+    }
+
+//    // Custom setters for frontend compatibility
+//    public void setShippingAddress(Object shippingAddress) {
+//        if (shippingAddress instanceof String) {
+//            this.shippingAddress = new VendorAddressDTO((String) shippingAddress);
+//        } else if (shippingAddress instanceof VendorAddressDTO) {
+//            this.shippingAddress = (VendorAddressDTO) shippingAddress;
+//        }
+//    }
+//
+//    public void setBillingAddress(VendorAddressDTO billingAddress) {
+//        this.billingAddress = billingAddress;
+//    }
 }

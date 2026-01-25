@@ -19,21 +19,21 @@ public class InvoiceItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
+    @NotBlank(message = "Item name is required")
     private String name;
 
     private String description;
 
-    @NotNull
+    @NotNull(message = "Hours is required")
     private Double hours = 0.0;
 
-    @NotNull
+    @NotNull(message = "Rate is required")
     private Double rate = 0.0;
 
-    @NotNull
+    // Calculated in service
     private Double amount = 0.0;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "invoice_id", nullable = false)
     @JsonBackReference
     private ManualInvoice manualInvoice;
