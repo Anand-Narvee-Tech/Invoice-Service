@@ -261,59 +261,62 @@ public class ManualInvoiceController1 {
 //        }
 //    }
     
-    @GetMapping("/searchAndSort")
-    public ResponseEntity<RestAPIResponse> getManualInvoices(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sortField,
-            @RequestParam(defaultValue = "asc") String sortDir) {
-
-        try {
-            Page<ManualInvoice> invoicePage =
-                    serviceImpl1.getAllInvoicesWithPaginationAndSearch(
-                            page,
-                            size,
-                            sortField,
-                            sortDir,
-                            keyword
-                    );
-
-            // Ensure shippingAddress never null
-            invoicePage.getContent().forEach(invoice -> {
-                if (invoice.getShippingAddress() == null) {
-                    invoice.setShippingAddress(new VendorAddressDTO());
-                }
-            });
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("invoices", invoicePage.getContent());
-            response.put("currentPage", invoicePage.getNumber());
-            response.put("pageSize", invoicePage.getSize());
-            response.put("totalItems", invoicePage.getTotalElements());
-            response.put("totalPages", invoicePage.getTotalPages());
-            response.put("sortField", sortField);
-            response.put("sortDir", sortDir);
-            response.put("keyword", keyword);
-
-            return ResponseEntity.ok(
-                    new RestAPIResponse(
-                            "Success",
-                            "Invoices retrieved successfully",
-                            response
-                    )
-            );
-
-        } catch (Exception e) {
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new RestAPIResponse(
-                            "Error",
-                            "Failed to fetch invoices: " + e.getMessage(),
-                            null
-                    ));
-        }
-    }
+    
+//    commented By Bhargav
+    
+//    @GetMapping("/searchAndSort")
+//    public ResponseEntity<RestAPIResponse> getManualInvoices(
+//            @RequestParam(required = false) String keyword,
+//            @RequestParam(defaultValue = "0") int page,
+//            @RequestParam(defaultValue = "10") int size,
+//            @RequestParam(defaultValue = "id") String sortField,
+//            @RequestParam(defaultValue = "asc") String sortDir) {
+//
+//        try {
+//            Page<ManualInvoice> invoicePage =
+//                    serviceImpl1.getAllInvoicesWithPaginationAndSearch(
+//                            page,
+//                            size,
+//                            sortField,
+//                            sortDir,
+//                            keyword
+//                    );
+//
+//            // Ensure shippingAddress never null
+//            invoicePage.getContent().forEach(invoice -> {
+//                if (invoice.getShippingAddress() == null) {
+//                    invoice.setShippingAddress(new VendorAddressDTO());
+//                }
+//            });
+//
+//            Map<String, Object> response = new HashMap<>();
+//            response.put("invoices", invoicePage.getContent());
+//            response.put("currentPage", invoicePage.getNumber());
+//            response.put("pageSize", invoicePage.getSize());
+//            response.put("totalItems", invoicePage.getTotalElements());
+//            response.put("totalPages", invoicePage.getTotalPages());
+//            response.put("sortField", sortField);
+//            response.put("sortDir", sortDir);
+//            response.put("keyword", keyword);
+//
+//            return ResponseEntity.ok(
+//                    new RestAPIResponse(
+//                            "Success",
+//                            "Invoices retrieved successfully",
+//                            response
+//                    )
+//            );
+//
+//        } catch (Exception e) {
+//            return ResponseEntity
+//                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body(new RestAPIResponse(
+//                            "Error",
+//                            "Failed to fetch invoices: " + e.getMessage(),
+//                            null
+//                    ));
+//        }
+//    }
     
     @GetMapping("/searchAndSort")
     public ResponseEntity<RestAPIResponse> getManualInvoices(
@@ -344,10 +347,10 @@ public class ManualInvoiceController1 {
     }
 
     
-    @PutMapping("/update-status/{invoiceNumber}")
-    public ResponseEntity<String> updateInvoiceStatus(
-            @PathVariable String invoiceNumber,
-            @RequestBody Map<String, String> payload) {
+//    @PutMapping("/update-status/{invoiceNumber}")
+//    public ResponseEntity<String> updateInvoiceStatus(
+//            @PathVariable String invoiceNumber,
+//            @RequestBody Map<String, String> payload) {
 
     @GetMapping("/count")
     public ResponseEntity<RestAPIResponse> getInvoiceCounts() {
