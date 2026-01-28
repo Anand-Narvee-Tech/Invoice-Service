@@ -110,9 +110,7 @@ public class ManualInvoice {
     @Valid
     private List<InvoiceItem> items = new ArrayList<>();
 
-    // Uploaded files
-    @ElementCollection
-    private List<String> uploadedFileNames = new ArrayList<>();
+
 
     // ================= Helper Methods =================
 

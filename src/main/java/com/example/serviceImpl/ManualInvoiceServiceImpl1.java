@@ -395,14 +395,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 
 
-    @Override
-    public List<String> getAllTemplates() {
-        File dir = new File(uploadDir);
-        if (!dir.exists() || dir.listFiles() == null) return List.of();
 
-        if (savedFiles.isEmpty()) throw new IOException("All files were empty!");
-        return savedFiles;
-    }
 
     @Override
     public List<String> getAllTemplates() {
