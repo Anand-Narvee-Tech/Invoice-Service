@@ -9,4 +9,6 @@ import com.example.entity.Invoice;
 public interface InvoiceRepository extends JpaRepository<Invoice,  Long> {
         boolean existsByInvoiceNumber(String invoiceNumber);
         public void deleteByInvoiceNumber(String invoiceNumber);
+        public	boolean existsByConsultantId(Long consultantId);
 }
+

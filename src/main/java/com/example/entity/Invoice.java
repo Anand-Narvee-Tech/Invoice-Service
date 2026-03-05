@@ -18,25 +18,28 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class Invoice {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long invoiceId;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private long invoiceId;
 
-    private String invoiceNumber;
-    private LocalDate date;
-    private LocalDate dueDate;
-    private String customer;
-    private String clientName;
+	private Long consultantId;
 
-    @Column(precision = 15, scale = 2)
-    private BigDecimal totalAmount;
+	private String invoiceNumber;
+	private LocalDate date;
+	private LocalDate dueDate;
+	private String customer;
+	private String clientName;
 
-    private String status;
-    private String fileName;
+	@Column(precision = 15, scale = 2)
+	private BigDecimal totalAmount;
 
-    @CreationTimestamp
-    private LocalDateTime createdAt;
+	private String status;
+	private String fileName;
 
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+	@CreationTimestamp
+	private LocalDateTime createdAt;
+
+	@UpdateTimestamp
+	private LocalDateTime updatedAt;
+
 }
