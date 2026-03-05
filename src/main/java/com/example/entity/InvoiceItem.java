@@ -15,26 +15,26 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class InvoiceItem {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    @NotBlank(message = "Item name is required")
-    private String name;
+	@NotBlank(message = "Item name is required")
+	private String name;
 
-    private String description;
+	private String description;
 
-    @NotNull(message = "Hours is required")
-    private Double hours = 0.0;
+	@NotNull(message = "Hours is required")
+	private Double hours = 0.0;
 
-    @NotNull(message = "Rate is required")
-    private Double rate = 0.0;
+	@NotNull(message = "Rate is required")
+	private Double rate = 0.0;
 
-    // Calculated in service
-    private Double amount = 0.0;
+	// Calculated in service
+	private Double amount = 0.0;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "invoice_id", nullable = false)
-    @JsonBackReference
-    private ManualInvoice manualInvoice;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "invoice_id", nullable = false)
+	@JsonBackReference
+	private ManualInvoice manualInvoice;
 }
