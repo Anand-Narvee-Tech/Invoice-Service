@@ -9,15 +9,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ConsultantDTO {
 
-    private Long id;
-    private String firstName;
-    private String middleName;
-    private String lastName;
-    private String email;
+	private Long id;
+	private String firstName;
+	private String middleName;
+	private String lastName;
+	private String email;
+	private String invoiceMail;
 
-    public String getFullName() {
-        return (firstName != null ? firstName : "") + " " +
-               (middleName != null ? middleName : "") + " " +
-               (lastName != null ? lastName : "");
-    }
+	public String getFullName() {
+		return (firstName != null ? firstName : "") + " " + (middleName != null ? middleName : "") + " "
+				+ (lastName != null ? lastName : "");
+	}
 }
