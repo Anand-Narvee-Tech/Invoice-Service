@@ -25,7 +25,7 @@ public class ManualInvoice {
 	private Long id;
 
 	private Long customerVendorId;
-	
+
 	@Column(name = "consultant_id")
 	private Long consultantId;
 

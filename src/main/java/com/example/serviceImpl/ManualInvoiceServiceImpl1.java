@@ -9,11 +9,9 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -57,121 +55,132 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	@Autowired
 	private ConsultantFeignClient consultantFeignClient;
 
+	@Autowired
+	private InvoiceEmailService invoiceEmailService;
+
 	@Override
 	@Transactional
 	public ManualInvoice saveInvoice(ManualInvoice request) {
 
-	    ManualInvoice invoice;
+		ManualInvoice invoice;
 
-	    // ===== CREATE vs UPDATE =====
-	    if (request.getId() != null && request.getId() > 0) {
+		// ===== CREATE vs UPDATE =====
+		if (request.getId() != null && request.getId() > 0) {
 
-	        invoice = invoiceRepository.findById(request.getId())
-	                .orElseThrow(() -> new RuntimeException("Invoice not found"));
+			invoice = invoiceRepository.findById(request.getId())
+					.orElseThrow(() -> new RuntimeException("Invoice not found"));
 
-	        // PO number uniqueness (UPDATE)
-	        if (invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), invoice.getId())) {
-	            throw new RuntimeException("PO Number already exists");
-	        }
+			if (invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), invoice.getId())) {
+				throw new RuntimeException("PO Number already exists");
+			}
 
-	        invoice.clearItems();
+			invoice.clearItems();
 
-	    } else {
+		} else {
 
-	        // PO number uniqueness (CREATE)
-	        if (invoiceRepository.existsByPoNumber(request.getPoNumber())) {
-	            throw new RuntimeException("PO Number already exists");
-	        }
+			if (invoiceRepository.existsByPoNumber(request.getPoNumber())) {
+				throw new RuntimeException("PO Number already exists");
+			}
 
-	        invoice = new ManualInvoice();
-	        invoice.setCreatedAt(LocalDateTime.now());
-	    }
+			invoice = new ManualInvoice();
+			invoice.setCreatedAt(LocalDateTime.now());
+		}
 
-	    // ===== Validate Consultant (via microservice) =====
-	    if (request.getConsultantId() != null) {
+		// ===== Validate Consultant =====
+		if (request.getConsultantId() != null) {
 
-	        ConsultantDTO consultant = consultantFeignClient.getConsultant(request.getConsultantId());
+			ConsultantDTO consultant = consultantFeignClient.getConsultant(request.getConsultantId());
 
-	        if (consultant == null) {
-	            throw new RuntimeException("Consultant not found with id: " + request.getConsultantId());
-	        }
+			if (consultant == null) {
+				throw new RuntimeException("Consultant not found with id: " + request.getConsultantId());
+			}
 
-	        invoice.setConsultantId(consultant.getId());
-	        invoice.setConsultantName(consultant.getFullName());
-	    }
+			invoice.setConsultantId(consultant.getId());
+			invoice.setConsultantName(consultant.getFullName());
+		}
 
-	    // ===== Field assignment =====
-	    invoice.setCustomer(request.getCustomer());
-	    invoice.setCustomerEmail(request.getCustomerEmail());
-	    invoice.setCustomerPhone(request.getCustomerPhone());
-	    invoice.setInvoiceDate(request.getInvoiceDate());
-	    invoice.setDueDate(request.getDueDate());
-	    invoice.setPaymentTerms(request.getPaymentTerms());
-	    invoice.setNotes(request.getNotes());
-	    invoice.setTax(request.getTax());
-	    invoice.setCredit(request.getCredit());
-	    invoice.setBillingAddress(request.getBillingAddress());
-	    invoice.setShippingAddress(request.getShippingAddress());
-	    invoice.setSalesRep(request.getSalesRep());
-	    invoice.setPoNumber(request.getPoNumber());
-	    invoice.setTemplate(request.getTemplate());
-	    invoice.setTermsAndConditions(request.getTermsAndConditions());
-	    invoice.setStatus(request.getStatus());
-	    invoice.setCurrency(request.getCurrency());
+		// ===== Basic Fields =====
+		invoice.setCustomer(request.getCustomer());
+		invoice.setCustomerEmail(request.getCustomerEmail());
+		invoice.setCustomerPhone(request.getCustomerPhone());
+		invoice.setInvoiceDate(request.getInvoiceDate());
+		invoice.setDueDate(request.getDueDate());
+		invoice.setPaymentTerms(request.getPaymentTerms());
+		invoice.setNotes(request.getNotes());
+		invoice.setTax(request.getTax());
+		invoice.setCredit(request.getCredit());
+		invoice.setBillingAddress(request.getBillingAddress());
+		invoice.setShippingAddress(request.getShippingAddress());
+		invoice.setSalesRep(request.getSalesRep());
+		invoice.setPoNumber(request.getPoNumber());
+		invoice.setTemplate(request.getTemplate());
+		invoice.setTermsAndConditions(request.getTermsAndConditions());
+		invoice.setStatus(request.getStatus());
+		invoice.setCurrency(request.getCurrency());
 
-	    // ===== Vendor Lookup =====
-	    if (request.getCustomer() != null && !request.getCustomer().isBlank()) {
+		// ===== Vendor Lookup =====
+		if (request.getCustomer() != null && !request.getCustomer().isBlank()) {
 
-	        List<VendorDTO> vendors = vendorFeignClient.searchVendors(request.getCustomer());
+			List<VendorDTO> vendors = vendorFeignClient.searchVendors(request.getCustomer());
 
-	        if (!vendors.isEmpty()) {
+			if (!vendors.isEmpty()) {
 
-	            VendorDTO vendor = vendors.get(0);
+				VendorDTO vendor = vendors.get(0);
 
-	            invoice.setCustomerVendorId(vendor.getVendorId());
-	            invoice.setCustomer(vendor.getVendorName());
-	            invoice.setCustomerEmail(vendor.getEmail());
-	            invoice.setCustomerPhone(vendor.getPhoneNumber());
+				invoice.setCustomerVendorId(vendor.getVendorId());
+				invoice.setCustomer(vendor.getVendorName());
 
-	        } else {
-	            throw new RuntimeException("Vendor not found for customer: " + request.getCustomer());
-	        }
-	    }
+				// Use request email if provided
+				if (request.getCustomerEmail() != null && !request.getCustomerEmail().isBlank()) {
+					invoice.setCustomerEmail(request.getCustomerEmail());
+				} else {
+					invoice.setCustomerEmail(vendor.getEmail());
+				}
 
-	    // ===== Items =====
-	    if (request.getItems() != null) {
-	        for (InvoiceItem item : request.getItems()) {
-	            invoice.addItem(item);
-	        }
-	    }
+				// Use request phone if provided
+				if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()) {
+					invoice.setCustomerPhone(request.getCustomerPhone());
+				} else {
+					invoice.setCustomerPhone(vendor.getPhoneNumber());
+				}
 
-	    // ===== Calculations =====
-	    calculateTotalsAndDueDate(invoice);
+			} else {
+				throw new RuntimeException("Vendor not found for customer: " + request.getCustomer());
+			}
+		}
 
-	    invoice.setUpdatedAt(LocalDateTime.now());
+		// ===== Items =====
+		if (request.getItems() != null) {
+			for (InvoiceItem item : request.getItems()) {
+				invoice.addItem(item);
+			}
+		}
 
-	    // ===== Generate Invoice Number =====
-	    if (invoice.getInvoiceNumber() == null) {
+		// ===== Calculations =====
+		calculateTotalsAndDueDate(invoice);
 
-	        LocalDate today = LocalDate.now();
+		invoice.setUpdatedAt(LocalDateTime.now());
 
-	        String year = String.valueOf(today.getYear()).substring(2);
+		// ===== Generate Invoice Number =====
+		if (invoice.getInvoiceNumber() == null) {
 
-	        Long consultantId = invoice.getConsultantId() != null ? invoice.getConsultantId() : 0L;
-	        String consultant = String.format("%03d", consultantId);
+			LocalDate today = LocalDate.now();
+			String year = String.valueOf(today.getYear()).substring(2);
 
-	        // First save to generate ID
-	        invoice = invoiceRepository.save(invoice);
+			Long consultantId = invoice.getConsultantId() != null ? invoice.getConsultantId() : 0L;
+			String consultant = String.format("%03d", consultantId);
 
-	        String invoiceId = String.format("%03d", invoice.getId());
+			invoice = invoiceRepository.save(invoice);
 
-	        invoice.setInvoiceNumber("INV-" + year + consultant + invoiceId);
-	    }
+			String invoiceId = String.format("%03d", invoice.getId());
 
-	    // Final save
-	    return invoiceRepository.save(invoice);
+			invoice.setInvoiceNumber("INV-" + year + consultant + invoiceId);
+		}
+
+		return invoiceRepository.save(invoice);
 	}
-		private void calculateTotalsAndDueDate(ManualInvoice invoice) {
+
+	private void calculateTotalsAndDueDate(ManualInvoice invoice) {
 
 		double subtotal = 0.0;
 		double totalHours = 0.0;
@@ -580,5 +589,17 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		invoicePage.getContent().forEach(this::enrichFromVendorService);
 
 		return invoicePage;
+	}
+
+	public void sendInvoiceMail(String invoiceNumber) {
+		System.out.println("Sending invoice mail to: " + invoiceNumber);
+		ManualInvoice invoice = invoiceRepository.findByInvoiceNumber(invoiceNumber)
+				.orElseThrow(() -> new RuntimeException("Invoice not found"));
+
+		ConsultantDTO consultant = consultantFeignClient.getConsultant(invoice.getConsultantId());
+
+		String email = consultant.getInvoiceMail();
+
+		invoiceEmailService.sendInvoiceMail(email, invoice);
 	}
 }
