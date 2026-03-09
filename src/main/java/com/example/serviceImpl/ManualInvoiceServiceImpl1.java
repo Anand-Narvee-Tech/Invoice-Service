@@ -501,20 +501,25 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		ManualInvoice invoice = invoiceRepository.findById(id)
 				.orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
 
-		// 🔐 PO number uniqueness check
 		if (invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), invoice.getId())) {
 			throw new RuntimeException("PO Number already exists");
 		}
 
-		// ===== Update fields explicitly =====
 		invoice.setCustomer(request.getCustomer());
+		invoice.setCustomerEmail(request.getCustomerEmail());
+		invoice.setCustomerPhone(request.getCustomerPhone());
+		invoice.setConsultantId(request.getConsultantId());
+		invoice.setConsultantName(request.getConsultantName());
+
 		invoice.setInvoiceDate(request.getInvoiceDate());
 		invoice.setPaymentTerms(request.getPaymentTerms());
 		invoice.setNotes(request.getNotes());
 		invoice.setTax(request.getTax());
 		invoice.setCredit(request.getCredit());
+
 		invoice.setBillingAddress(request.getBillingAddress());
 		invoice.setShippingAddress(request.getShippingAddress());
+
 		invoice.setSalesRep(request.getSalesRep());
 		invoice.setPoNumber(request.getPoNumber());
 		invoice.setTemplate(request.getTemplate());
@@ -522,7 +527,6 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		invoice.setStatus(request.getStatus());
 		invoice.setCurrency(request.getCurrency());
 
-		// ===== Items (VERY IMPORTANT) =====
 		invoice.clearItems();
 		if (request.getItems() != null) {
 			for (InvoiceItem item : request.getItems()) {
