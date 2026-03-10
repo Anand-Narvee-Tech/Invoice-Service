@@ -401,9 +401,8 @@ public class ManualInvoiceController1 {
 	@PostMapping("/send-mail/{invoiceNumber}")
 	public ResponseEntity<RestAPIResponse> sendInvoiceMail(@PathVariable String invoiceNumber) {
 
-	    serviceImpl1.sendInvoiceMail(invoiceNumber);
+		serviceImpl1.sendInvoiceMail(invoiceNumber);
 
-	    return ResponseEntity.ok(
-	            new RestAPIResponse("success", "Invoice mail sent successfully", null));
+		return ResponseEntity.ok(new RestAPIResponse("success", "Invoice mail sent successfully", null));
 	}
 }
