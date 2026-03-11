@@ -116,6 +116,14 @@ public interface ManualInvoiceRepository
 	@Query("SELECT i FROM ManualInvoice i LEFT JOIN FETCH i.items "
 			+ "WHERE LOWER(i.status) = 'overdue' AND i.dueDate = :today")
 	List<ManualInvoice> findOverdueInvoicesForToday(@Param("today") LocalDate today);
-	
+
 	boolean existsByConsultantId(Long consultantId);
+
+//	boolean existsByPoNumber(String poNumber);
+//
+//	boolean existsByPoNumberAndIdNot(String poNumber, Long id);
+//
+//	Optional<ManualInvoice> findByInvoiceNumber(String invoiceNumber);
+
+	Optional<ManualInvoice> findByIdAndAdminId(Long id, Long adminId);
 }

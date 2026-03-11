@@ -75,6 +75,10 @@ public class ManualInvoice {
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 
+	// vasim
+	@Column(name = "admin_id")
+	private Long adminId;
+
 	// Billing Address
 	@Embedded
 	@AttributeOverrides({ @AttributeOverride(name = "street", column = @Column(name = "billing_street")),

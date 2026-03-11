@@ -67,8 +67,8 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		// ===== CREATE vs UPDATE =====
 		if (request.getId() != null && request.getId() > 0) {
 
-			invoice = invoiceRepository.findById(request.getId())
-					.orElseThrow(() -> new RuntimeException("Invoice not found"));
+			invoice = invoiceRepository.findByIdAndAdminId(request.getId(), request.getAdminId())
+					.orElseThrow(() -> new RuntimeException("Invoice not found or unauthorized access"));
 
 			if (invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), invoice.getId())) {
 				throw new RuntimeException("PO Number already exists");
@@ -95,8 +95,16 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 				throw new RuntimeException("Consultant not found with id: " + request.getConsultantId());
 			}
 
+			// 🔐 Admin validation
+			if (request.getAdminId() != null && !consultant.getAdminId().equals(request.getAdminId())) {
+				throw new RuntimeException("Unauthorized consultant access");
+			}
+
 			invoice.setConsultantId(consultant.getId());
 			invoice.setConsultantName(consultant.getFullName());
+
+			// Save adminId inside invoice
+			invoice.setAdminId(consultant.getAdminId());
 		}
 
 		// ===== Basic Fields =====
@@ -130,14 +138,12 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 				invoice.setCustomerVendorId(vendor.getVendorId());
 				invoice.setCustomer(vendor.getVendorName());
 
-				// Use request email if provided
 				if (request.getCustomerEmail() != null && !request.getCustomerEmail().isBlank()) {
 					invoice.setCustomerEmail(request.getCustomerEmail());
 				} else {
 					invoice.setCustomerEmail(vendor.getEmail());
 				}
 
-				// Use request phone if provided
 				if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()) {
 					invoice.setCustomerPhone(request.getCustomerPhone());
 				} else {
