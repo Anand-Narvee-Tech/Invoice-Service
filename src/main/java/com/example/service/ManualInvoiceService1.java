@@ -14,15 +14,15 @@ import com.example.entity.ManualInvoice;
 public interface ManualInvoiceService1 {
 	ManualInvoice saveInvoice(ManualInvoice paramManualInvoice);
 
-	public boolean isPoNumberDuplicate(String poNumber, Long invoiceId);
+	public boolean isPoNumberDuplicate(String poNumber, Long invoiceId, Long adminId);
 
 	ManualInvoice getInvoiceById(Long paramLong);
 
 	ManualInvoice updateInvoice(Long paramLong, ManualInvoice paramManualInvoice);
 
-	List<ManualInvoice> getAllInvoices();
+	public List<ManualInvoice> getAllInvoices(Long adminId);
 
-	void deleteInvoice(Long paramLong);
+	public void deleteInvoice(Long id, Long adminId);
 
 	ManualInvoice updateManualInvoice(Long id, ManualInvoice invoice);
 
@@ -47,5 +47,5 @@ public interface ManualInvoiceService1 {
 	public List<ManualInvoice> getTodayOverdueInvoices();
 
 	public Page<ManualInvoice> getAllInvoicesWithPaginationAndSearch(int page, int size, String sortField,
-			String sortDir, String keyword);
+			String sortDir, String keyword, Long adminId);
 }

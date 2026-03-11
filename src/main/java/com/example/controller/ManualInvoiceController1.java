@@ -125,9 +125,9 @@ public class ManualInvoiceController1 {
 
 	@GetMapping("/exists/{poNumber}")
 	public ResponseEntity<Map<String, Object>> checkPoNumberDuplicate(@PathVariable String poNumber,
-			@RequestParam(required = false) Long invoiceId) {
+			@RequestParam(required = false) Long invoiceId, @RequestParam Long adminId) {
 
-		boolean exists = serviceImpl1.isPoNumberDuplicate(poNumber, invoiceId);
+		boolean exists = serviceImpl1.isPoNumberDuplicate(poNumber, invoiceId, adminId);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("field", "poNumber");
@@ -238,10 +238,10 @@ public class ManualInvoiceController1 {
 
 	// Get all invoices
 	@GetMapping("/getall")
-	public ResponseEntity<RestAPIResponse> getAllInvoices() {
+	public ResponseEntity<RestAPIResponse> getAllInvoices(@RequestParam Long adminId) {
 		try {
 			return ResponseEntity
-					.ok(new RestAPIResponse("Success", "All Invoices Retrieved", serviceImpl1.getAllInvoices()));
+					.ok(new RestAPIResponse("Success", "All Invoices Retrieved", serviceImpl1.getAllInvoices(adminId)));
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(new RestAPIResponse("Error", "Failed to retrieve invoices: " + e.getMessage(), null));
@@ -268,11 +268,13 @@ public class ManualInvoiceController1 {
 	@GetMapping("/searchAndSort")
 	public ResponseEntity<RestAPIResponse> getManualInvoices(@RequestParam(required = false) String keyword,
 			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size,
-			@RequestParam(defaultValue = "id") String sortField, @RequestParam(defaultValue = "asc") String sortDir) {
+			@RequestParam(defaultValue = "id") String sortField, @RequestParam(defaultValue = "asc") String sortDir,
+			@RequestParam Long adminId) {
+
 		try {
-			// Call with all 5 params
+
 			Page<ManualInvoice> invoicePage = serviceImpl1.getAllInvoicesWithPaginationAndSearch(page, size, sortField,
-					sortDir, keyword);
+					sortDir, keyword, adminId);
 
 			Map<String, Object> response = new HashMap<>();
 			response.put("invoices", invoicePage.getContent());
@@ -284,7 +286,9 @@ public class ManualInvoiceController1 {
 			response.put("keyword", keyword);
 
 			return ResponseEntity.ok(new RestAPIResponse("Success", "Invoices retrieved successfully", response));
+
 		} catch (Exception e) {
+
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(new RestAPIResponse("Error", "Failed to fetch Invoices: " + e.getMessage(), null));
 		}
@@ -359,7 +363,8 @@ public class ManualInvoiceController1 {
 	@PutMapping("/invoices/update-vendor")
 	public ResponseEntity<Void> updateInvoicesByVendor(@RequestBody VendorDTO vendorDTO) {
 
-		List<ManualInvoice> invoices = manualInvoiceRepository.findByCustomerVendorId(vendorDTO.getVendorId());
+		List<ManualInvoice> invoices = manualInvoiceRepository.findByCustomerVendorIdAndAdminId(vendorDTO.getVendorId(),
+				vendorDTO.getAdminId());
 
 		for (ManualInvoice invoice : invoices) {
 
@@ -373,16 +378,22 @@ public class ManualInvoiceController1 {
 		}
 
 		manualInvoiceRepository.saveAll(invoices);
+
 		return ResponseEntity.ok().build();
 	}
 
 	// Delete invoice
 	@DeleteMapping("/{id}")
-	public ResponseEntity<RestAPIResponse> deleteInvoice(@PathVariable Long id) {
+	public ResponseEntity<RestAPIResponse> deleteInvoice(@PathVariable Long id, @RequestParam Long adminId) {
+
 		try {
-			serviceImpl1.deleteInvoice(id);
+
+			serviceImpl1.deleteInvoice(id, adminId);
+
 			return ResponseEntity.ok(new RestAPIResponse("Success", "Invoice Deleted Successfully", null));
+
 		} catch (Exception e) {
+
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(new RestAPIResponse("Error", "Failed to delete invoice: " + e.getMessage(), null));
 		}
@@ -394,16 +405,17 @@ public class ManualInvoiceController1 {
 //	}
 
 	@GetMapping("/consultant/{consultantId}/exists")
-	public boolean hasInvoices(@PathVariable("consultantId") Long consultantId) {
-		return manualInvoiceRepository.existsByConsultantId(consultantId);
+	public boolean hasInvoices(@PathVariable("consultantId") Long consultantId, @RequestParam Long adminId) {
+
+		return manualInvoiceRepository.existsByConsultantIdAndAdminId(consultantId, adminId);
 	}
 
 	@PostMapping("/send-mail/{invoiceNumber}")
-	public ResponseEntity<RestAPIResponse> sendInvoiceMail(@PathVariable String invoiceNumber) {
+	public ResponseEntity<RestAPIResponse> sendInvoiceMail(@PathVariable String invoiceNumber,
+			@RequestParam Long adminId) {
 
-	    serviceImpl1.sendInvoiceMail(invoiceNumber);
+		serviceImpl1.sendInvoiceMail(invoiceNumber, adminId);
 
-	    return ResponseEntity.ok(
-	            new RestAPIResponse("success", "Invoice mail sent successfully", null));
+		return ResponseEntity.ok(new RestAPIResponse("success", "Invoice mail sent successfully", null));
 	}
 }

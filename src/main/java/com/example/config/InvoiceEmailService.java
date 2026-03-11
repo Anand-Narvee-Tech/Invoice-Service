@@ -8,7 +8,7 @@
 //import com.example.entity.ManualInvoice;
 //
 //@Service
-//public class InvoiceEmailService {
+//public class InvoiceEmailServices {
 //
 //    @Autowired
 //    private JavaMailSender mailSender;

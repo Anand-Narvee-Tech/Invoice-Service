@@ -9,12 +9,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import com.example.DTO.VendorDTO;
 
-@FeignClient(name = "customer-service", url = "${customer.service.url}")
+@FeignClient(name = "CUSTOMER-SERVICE")
 public interface VendorFeignClient {
 
-    @GetMapping("/vendor/by-name")
-    List<VendorDTO> searchVendors(@RequestParam("name") String name);
-    
-    @GetMapping("/vendor/{vendorId}")
-    VendorDTO getVendorById(@PathVariable("vendorId") Long vendorId);
+	@GetMapping("/vendor/by-name")
+	List<VendorDTO> searchVendors(@RequestParam("name") String name);
+
+	@GetMapping("/vendor/{vendorId}")
+	VendorDTO getVendorById(@PathVariable("vendorId") Long vendorId);
 }
