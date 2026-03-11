@@ -232,16 +232,19 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	}
 
 	@Override
-	public boolean isPoNumberDuplicate(String poNumber, Long invoiceId) {
+	public boolean isPoNumberDuplicate(String poNumber, Long invoiceId, Long adminId) {
+
 		if (poNumber == null || poNumber.isBlank()) {
 			return false;
 		}
+
 		// UPDATE case
 		if (invoiceId != null) {
-			return invoiceRepository.existsByPoNumberIgnoreCaseAndIdNot(poNumber, invoiceId);
+			return invoiceRepository.existsByPoNumberIgnoreCaseAndAdminIdAndIdNot(poNumber, adminId, invoiceId);
 		}
+
 		// CREATE case
-		return invoiceRepository.existsByPoNumberIgnoreCase(poNumber);
+		return invoiceRepository.existsByPoNumberIgnoreCaseAndAdminId(poNumber, adminId);
 	}
 
 	@Override
@@ -265,8 +268,8 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	}
 
 	@Override
-	public List<ManualInvoice> getAllInvoices() {
-		return invoiceRepository.findAll();
+	public List<ManualInvoice> getAllInvoices(Long adminId) {
+		return invoiceRepository.findByAdminId(adminId);
 	}
 
 	@Override
@@ -279,27 +282,32 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 	@Transactional
 	@Override
-	public void deleteInvoice(Long id) {
+	public void deleteInvoice(Long id, Long adminId) {
 
-		ManualInvoice invoice = invoiceRepository.findById(id)
-				.orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
+	    ManualInvoice invoice = invoiceRepository
+	            .findByIdAndAdminId(id, adminId)
+	            .orElseThrow(() -> new RuntimeException("Invoice not found or unauthorized"));
 
-		// Delete uploaded files
-		if (invoice.getUploadedFileNames() != null) {
-			for (String fileName : invoice.getUploadedFileNames()) {
-				try {
-					File file = new File(uploadDir, fileName);
-					if (file.exists() && !file.delete()) {
-						System.err.println("⚠️ Failed to delete file: " + fileName);
-					}
-				} catch (Exception e) {
-					System.err.println("⚠️ File delete error: " + e.getMessage());
-				}
-			}
-		}
+	    // Delete uploaded files
+	    if (invoice.getUploadedFileNames() != null) {
 
-		// ONE LINE ONLY
-		invoiceRepository.delete(invoice);
+	        for (String fileName : invoice.getUploadedFileNames()) {
+
+	            try {
+
+	                File file = new File(uploadDir, fileName);
+
+	                if (file.exists() && !file.delete()) {
+	                    System.err.println("⚠️ Failed to delete file: " + fileName);
+	                }
+
+	            } catch (Exception e) {
+	                System.err.println("⚠️ File delete error: " + e.getMessage());
+	            }
+	        }
+	    }
+
+	    invoiceRepository.delete(invoice);
 	}
 
 	@Override
@@ -569,42 +577,40 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	// vasim/03/03
 	@Override
 	public Page<ManualInvoice> getAllInvoicesWithPaginationAndSearch(int page, int size, String sortField,
-			String sortDir, String keyword) {
+			String sortDir, String keyword, Long adminId) {
 
-		// ---------- SORT DIRECTION SAFETY ----------
 		if (!"asc".equalsIgnoreCase(sortDir) && !"desc".equalsIgnoreCase(sortDir)) {
 			sortDir = "asc";
 		}
 
-		// ---------- SORT FIELD SAFETY (prevents crash) ----------
 		if (sortField == null || sortField.isBlank()) {
-			sortField = "createdAt"; // default column
+			sortField = "createdAt";
 		}
 
 		Sort sort = "desc".equalsIgnoreCase(sortDir) ? Sort.by(sortField).descending() : Sort.by(sortField).ascending();
 
 		Pageable pageable = PageRequest.of(page, size, sort);
 
-		// ---------- 🔥 KEYWORD FORMATTING (THIS WAS MISSING) ----------
 		if (keyword == null || keyword.trim().isEmpty()) {
 			keyword = null;
 		} else {
 			keyword = "%" + keyword.trim().toLowerCase() + "%";
 		}
 
-		// ---------- REPOSITORY CALL ----------
-		Page<ManualInvoice> invoicePage = invoiceRepository.searchInvoices(keyword, pageable);
+		// 🔐 ADMIN FILTER ADDED
+		Page<ManualInvoice> invoicePage = invoiceRepository.searchInvoices(keyword, adminId, pageable);
 
-		// ---------- ENRICH RESPONSE ----------
 		invoicePage.getContent().forEach(this::enrichFromVendorService);
 
 		return invoicePage;
 	}
 
-	public void sendInvoiceMail(String invoiceNumber) {
+	public void sendInvoiceMail(String invoiceNumber, Long adminId) {
+
 		System.out.println("Sending invoice mail to: " + invoiceNumber);
-		ManualInvoice invoice = invoiceRepository.findByInvoiceNumber(invoiceNumber)
-				.orElseThrow(() -> new RuntimeException("Invoice not found"));
+
+		ManualInvoice invoice = invoiceRepository.findByInvoiceNumberAndAdminId(invoiceNumber, adminId)
+				.orElseThrow(() -> new RuntimeException("Invoice not found or unauthorized access"));
 
 		ConsultantDTO consultant = consultantFeignClient.getConsultant(invoice.getConsultantId());
 
