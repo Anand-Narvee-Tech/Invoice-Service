@@ -49,7 +49,7 @@ public class ManualInvoice {
 
 	private String paymentTerms;
 
-	@Column(name = "po_number", nullable = false)
+	@Column(name = "po_number")
 	private String poNumber;
 
 	private String salesRep;
