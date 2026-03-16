@@ -25,7 +25,7 @@ public class ManualInvoice {
 	private Long id;
 
 	private Long customerVendorId;
-	
+
 	@Column(name = "consultant_id")
 	private Long consultantId;
 
@@ -49,7 +49,7 @@ public class ManualInvoice {
 
 	private String paymentTerms;
 
-	@Column(name = "po_number", nullable = false)
+	@Column(name = "po_number")
 	private String poNumber;
 
 	private String salesRep;
@@ -74,6 +74,10 @@ public class ManualInvoice {
 	// Timestamps
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
+
+	// vasim
+	@Column(name = "admin_id")
+	private Long adminId;
 
 	// Billing Address
 	@Embedded

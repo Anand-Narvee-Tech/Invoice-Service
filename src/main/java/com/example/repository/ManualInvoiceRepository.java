@@ -35,6 +35,8 @@ public interface ManualInvoiceRepository
 //    Page<ManualInvoice> searchInvoices(@Param("keyword") String keyword, Pageable pageable);
 //    
 
+	List<ManualInvoice> findByCustomerVendorIdAndAdminId(Long vendorId, Long adminId);
+
 	// vasim/03/03
 	@Query("""
 			SELECT m FROM ManualInvoice m
@@ -116,6 +118,36 @@ public interface ManualInvoiceRepository
 	@Query("SELECT i FROM ManualInvoice i LEFT JOIN FETCH i.items "
 			+ "WHERE LOWER(i.status) = 'overdue' AND i.dueDate = :today")
 	List<ManualInvoice> findOverdueInvoicesForToday(@Param("today") LocalDate today);
-	
+
 	boolean existsByConsultantId(Long consultantId);
+
+	boolean existsByConsultantIdAndAdminId(Long consultantId, Long adminId);
+//	boolean existsByPoNumber(String poNumber);
+//
+//	boolean existsByPoNumberAndIdNot(String poNumber, Long id);
+//
+//	Optional<ManualInvoice> findByInvoiceNumber(String invoiceNumber);
+
+	Optional<ManualInvoice> findByIdAndAdminId(Long id, Long adminId);
+
+	boolean existsByPoNumberIgnoreCaseAndAdminId(String poNumber, Long adminId);
+
+	boolean existsByPoNumberIgnoreCaseAndAdminIdAndIdNot(String poNumber, Long adminId, Long id);
+
+	List<ManualInvoice> findByAdminId(Long adminId);
+
+	@Query("""
+			SELECT i FROM ManualInvoice i
+			WHERE i.adminId = :adminId
+			AND (
+			     :keyword IS NULL
+			     OR LOWER(i.customer) LIKE :keyword
+			     OR LOWER(i.poNumber) LIKE :keyword
+			     OR LOWER(i.invoiceNumber) LIKE :keyword
+			)
+			""")
+	Page<ManualInvoice> searchInvoices(@Param("keyword") String keyword, @Param("adminId") Long adminId,
+			Pageable pageable);
+
+	Optional<ManualInvoice> findByInvoiceNumberAndAdminId(String invoiceNumber, Long adminId);
 }
