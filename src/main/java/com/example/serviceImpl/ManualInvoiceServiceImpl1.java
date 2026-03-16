@@ -64,22 +64,30 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 		ManualInvoice invoice;
 
+		String poNumber = request.getPoNumber() != null ? request.getPoNumber().trim() : null;
+
 		// ===== CREATE vs UPDATE =====
 		if (request.getId() != null && request.getId() > 0) {
 
 			invoice = invoiceRepository.findByIdAndAdminId(request.getId(), request.getAdminId())
 					.orElseThrow(() -> new RuntimeException("Invoice not found or unauthorized access"));
 
-			if (invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), invoice.getId())) {
-				throw new RuntimeException("PO Number already exists");
+			// PO check (only if provided)
+			if (poNumber != null && !poNumber.isEmpty()) {
+				if (invoiceRepository.existsByPoNumberAndIdNot(poNumber, invoice.getId())) {
+					throw new RuntimeException("PO Number already exists");
+				}
 			}
 
 			invoice.clearItems();
 
 		} else {
 
-			if (invoiceRepository.existsByPoNumber(request.getPoNumber())) {
-				throw new RuntimeException("PO Number already exists");
+			// PO check (only if provided)
+			if (poNumber != null && !poNumber.isEmpty()) {
+				if (invoiceRepository.existsByPoNumber(poNumber)) {
+					throw new RuntimeException("PO Number already exists");
+				}
 			}
 
 			invoice = new ManualInvoice();
@@ -102,8 +110,6 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 			invoice.setConsultantId(consultant.getId());
 			invoice.setConsultantName(consultant.getFullName());
-
-			// Save adminId inside invoice
 			invoice.setAdminId(consultant.getAdminId());
 		}
 
@@ -120,7 +126,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		invoice.setBillingAddress(request.getBillingAddress());
 		invoice.setShippingAddress(request.getShippingAddress());
 		invoice.setSalesRep(request.getSalesRep());
-		invoice.setPoNumber(request.getPoNumber());
+		invoice.setPoNumber(poNumber);
 		invoice.setTemplate(request.getTemplate());
 		invoice.setTermsAndConditions(request.getTermsAndConditions());
 		invoice.setStatus(request.getStatus());
@@ -284,30 +290,29 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	@Override
 	public void deleteInvoice(Long id, Long adminId) {
 
-	    ManualInvoice invoice = invoiceRepository
-	            .findByIdAndAdminId(id, adminId)
-	            .orElseThrow(() -> new RuntimeException("Invoice not found or unauthorized"));
+		ManualInvoice invoice = invoiceRepository.findByIdAndAdminId(id, adminId)
+				.orElseThrow(() -> new RuntimeException("Invoice not found or unauthorized"));
 
-	    // Delete uploaded files
-	    if (invoice.getUploadedFileNames() != null) {
+		// Delete uploaded files
+		if (invoice.getUploadedFileNames() != null) {
 
-	        for (String fileName : invoice.getUploadedFileNames()) {
+			for (String fileName : invoice.getUploadedFileNames()) {
 
-	            try {
+				try {
 
-	                File file = new File(uploadDir, fileName);
+					File file = new File(uploadDir, fileName);
 
-	                if (file.exists() && !file.delete()) {
-	                    System.err.println("⚠️ Failed to delete file: " + fileName);
-	                }
+					if (file.exists() && !file.delete()) {
+						System.err.println("⚠️ Failed to delete file: " + fileName);
+					}
 
-	            } catch (Exception e) {
-	                System.err.println("⚠️ File delete error: " + e.getMessage());
-	            }
-	        }
-	    }
+				} catch (Exception e) {
+					System.err.println("⚠️ File delete error: " + e.getMessage());
+				}
+			}
+		}
 
-	    invoiceRepository.delete(invoice);
+		invoiceRepository.delete(invoice);
 	}
 
 	@Override
@@ -318,16 +323,21 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		ManualInvoice existingInvoice = invoiceRepository.findById(id)
 				.orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
 
-		// 2️⃣ PO Number uniqueness check (exclude current invoice)
-		if (request.getPoNumber() != null && invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), id)) {
-			throw new RuntimeException("PO Number already exists");
+		// 2️⃣ Clean PO Number
+		String poNumber = request.getPoNumber() != null ? request.getPoNumber().trim() : null;
+
+		// 3️⃣ PO Number uniqueness check (only if PO provided)
+		if (poNumber != null && !poNumber.isEmpty()) {
+			if (invoiceRepository.existsByPoNumberAndIdNot(poNumber, id)) {
+				throw new RuntimeException("PO Number already exists");
+			}
 		}
 
-		// 3️⃣ Detect if customer/vendor has changed
+		// 4️⃣ Detect if customer/vendor has changed
 		boolean customerChanged = request.getCustomerVendorId() != null
 				&& !request.getCustomerVendorId().equals(existingInvoice.getCustomerVendorId());
 
-		// 4️⃣ Update basic fields
+		// 5️⃣ Update basic fields
 		existingInvoice.setCustomer(request.getCustomer());
 		existingInvoice.setCustomerEmail(request.getCustomerEmail());
 		existingInvoice.setCustomerPhone(request.getCustomerPhone());
@@ -341,13 +351,13 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		existingInvoice.setBillingAddress(request.getBillingAddress());
 		existingInvoice.setShippingAddress(request.getShippingAddress());
 		existingInvoice.setSalesRep(request.getSalesRep());
-		existingInvoice.setPoNumber(request.getPoNumber());
+		existingInvoice.setPoNumber(poNumber);
 		existingInvoice.setTemplate(request.getTemplate());
 		existingInvoice.setTermsAndConditions(request.getTermsAndConditions());
 		existingInvoice.setStatus(request.getStatus());
 		existingInvoice.setCurrency(request.getCurrency());
 
-		// 5️⃣ Vendor enrichment via Feign (using vendorId for accuracy)
+		// 6️⃣ Vendor enrichment via Feign
 		if (customerChanged || existingInvoice.getCustomerEmail() == null
 				|| existingInvoice.getCustomerEmail().isBlank() || existingInvoice.getCustomerPhone() == null
 				|| existingInvoice.getCustomerPhone().isBlank()) {
@@ -355,6 +365,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 			if (existingInvoice.getCustomerVendorId() != null) {
 				try {
 					VendorDTO vendor = vendorFeignClient.getVendorById(existingInvoice.getCustomerVendorId());
+
 					if (vendor != null) {
 						existingInvoice.setCustomer(vendor.getVendorName());
 						existingInvoice.setCustomerEmail(vendor.getEmail());
@@ -362,36 +373,36 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 						existingInvoice.setBillingAddress(vendor.getVendorAddress());
 						existingInvoice.setShippingAddress(vendor.getVendorAddress());
 					}
+
 				} catch (Exception e) {
-					// Log but don’t block update
 					log.warn("Vendor enrichment failed for vendorId {}: {}", existingInvoice.getCustomerVendorId(),
 							e.getMessage());
 				}
 			}
 		}
 
-		// 6️ Update invoice items
+		// 7️⃣ Update invoice items
 		existingInvoice.getItems().clear();
+
 		if (request.getItems() != null) {
 			for (InvoiceItem item : request.getItems()) {
-				item.setId(null); // Ensure insert
+				item.setId(null);
 				item.setManualInvoice(existingInvoice);
 				existingInvoice.getItems().add(item);
 			}
 		}
 
-		// 7️ Update uploaded files if provided
+		// 8️⃣ Update uploaded files
 		if (request.getUploadedFileNames() != null) {
 			existingInvoice.setUploadedFileNames(request.getUploadedFileNames());
 		}
 
-		// 8️ Recalculate totals
+		// 9️⃣ Recalculate totals
 		calculateTotalsAndDueDate(existingInvoice);
 
-		// 9️ Update timestamp
+		// 🔟 Update timestamp
 		existingInvoice.setUpdatedAt(LocalDateTime.now());
 
-		// Save and return
 		return invoiceRepository.save(existingInvoice);
 	}
 
