@@ -48,4 +48,9 @@ public interface ManualInvoiceService1 {
 
 	public Page<ManualInvoice> getAllInvoicesWithPaginationAndSearch(int page, int size, String sortField,
 			String sortDir, String keyword, Long adminId);
+	
+	//Bhargav 17-03-26
+	public List<ManualInvoice> getInvoicesByConsultantId(Long consultantId);
+	//Bhargav 17-03-26
+
 }

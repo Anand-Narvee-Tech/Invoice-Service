@@ -22,6 +22,11 @@ public interface ManualInvoiceRepository
 	boolean existsByInvoiceNumber(String invoiceNumber);
 
 	List<ManualInvoice> findByCustomerVendorId(Long vendorId);
+	
+	//Bhargav 17-03-26
+	List<ManualInvoice> findByConsultantId(Long consultantId);
+	//Bhargav 17-03-26
+
 
 	// Search invoices by keyword in multiple fields
 //    @Query("SELECT m FROM ManualInvoice m " +
