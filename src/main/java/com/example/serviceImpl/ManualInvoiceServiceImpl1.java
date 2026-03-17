@@ -664,8 +664,15 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		return invoiceRepository.findByConsultantId(consultantId);
 	}
 	// Bhargav 17-03-26
+
+	// Bhargav 18-03-26
+	@Override
+	public List<ManualInvoice> getPendingInvoicesByAdmin(Long adminId) {
+	    return invoiceRepository.findByAdminIdAndStatus(adminId, "Pending");
+
+	}
 	
-	
+	// Bhargav 18-03-26
 	
 
 }
