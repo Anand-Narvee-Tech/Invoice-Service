@@ -53,4 +53,7 @@ public interface ManualInvoiceService1 {
 	public List<ManualInvoice> getInvoicesByConsultantId(Long consultantId);
 	//Bhargav 17-03-26
 
+	//Bhargav 18-03-26
+	public List<ManualInvoice> getPendingInvoicesByAdmin(Long adminId);
+	//Bhargav 18-03-26
 }

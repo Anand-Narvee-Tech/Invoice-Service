@@ -78,7 +78,7 @@ public class ManualInvoice {
 	private LocalDateTime updatedAt;
 
 	// vasim
-	@Column(name = "admin_id")
+	@Column(name = "adminId")
 	private Long adminId;
 
 	// Bhargav 17/03/26

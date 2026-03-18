@@ -155,4 +155,9 @@ public interface ManualInvoiceRepository
 			Pageable pageable);
 
 	Optional<ManualInvoice> findByInvoiceNumberAndAdminId(String invoiceNumber, Long adminId);
+
+	//Bhargav 18-03-26
+	List<ManualInvoice> findByAdminIdAndStatus(Long adminId, String status);	
+	//Bhargav 18-03-26
+
 }
