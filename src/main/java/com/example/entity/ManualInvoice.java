@@ -10,6 +10,7 @@ import com.example.DTO.VendorAddressDTO;
 import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -17,6 +18,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "manual_invoices", uniqueConstraints = { @UniqueConstraint(columnNames = "po_number") })
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
 public class ManualInvoice {
 
 	@Id
@@ -76,8 +78,24 @@ public class ManualInvoice {
 	private LocalDateTime updatedAt;
 
 	// vasim
-	@Column(name = "admin_id")
+	@Column(name = "adminId")
 	private Long adminId;
+
+	// Bhargav 17/03/26
+
+	@Column(name = "paymentAmount")
+	private String paymentAmount;
+
+	@Column(name = "paymentDate")
+	private LocalDateTime paymentDate;
+
+	@Column(name = "dueAmount")
+	private String dueAmount;
+
+	@Column(name = "Remarks")
+	private String Remarks;
+	
+	// Bhargav 17/03/26
 
 	// Billing Address
 	@Embedded

@@ -418,4 +418,28 @@ public class ManualInvoiceController1 {
 
 		return ResponseEntity.ok(new RestAPIResponse("success", "Invoice mail sent successfully", null));
 	}
+	//Bhargav 17-03-26
+	@GetMapping("/consultant/{consultantId}")
+	public ResponseEntity<?> getInvoicesByConsultant(@PathVariable Long consultantId) {
+
+	    List<ManualInvoice> invoices = serviceImpl1.getInvoicesByConsultantId(consultantId);
+
+	    return ResponseEntity.ok(
+	            new RestAPIResponse("Success", "Invoices fetched successfully", invoices)
+	    );
+	}
+	//Bhargav 17-03-26
+	
+	
+	//Bhargav 18-03-26
+	@GetMapping("/pending-invoices/{adminId}")
+	public ResponseEntity<RestAPIResponse> getPendingInvoices(@PathVariable Long adminId) {
+
+	    List<ManualInvoice> invoices = serviceImpl1.getPendingInvoicesByAdmin(adminId);
+
+	    return ResponseEntity.ok(
+	            new RestAPIResponse("Success", "Pending invoices fetched successfully", invoices)
+	    );
+	}
+	//Bhargav 18-03-26
 }
