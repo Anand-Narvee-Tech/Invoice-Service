@@ -87,13 +87,19 @@ public class ManualInvoice {
 	private String paymentAmount;
 
 	@Column(name = "paymentDate")
-	private LocalDateTime paymentDate;
+	private LocalDate paymentDate;
 
 	@Column(name = "dueAmount")
 	private String dueAmount;
 
 	@Column(name = "Remarks")
 	private String Remarks;
+	
+	@Column(name = "periodStart")
+	private LocalDate periodStart;
+	
+	@Column(name = "periodend")
+	private LocalDate periodend;
 	
 	// Bhargav 17/03/26
 

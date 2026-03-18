@@ -136,6 +136,9 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		invoice.setPaymentDate(request.getPaymentDate());
 		invoice.setDueAmount(request.getDueAmount());
 		invoice.setRemarks(request.getRemarks());
+		invoice.setPeriodend(request.getPeriodend());
+		invoice.setPeriodStart(request.getPeriodStart());
+
 
 		// ===== Vendor Lookup =====
 		if (request.getCustomer() != null && !request.getCustomer().isBlank()) {
@@ -570,6 +573,8 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	    invoice.setPaymentDate(request.getPaymentDate());
 	    invoice.setDueAmount(request.getDueAmount());
 	    invoice.setRemarks(request.getRemarks());
+	    invoice.setPeriodend(request.getPeriodend());
+	    invoice.setPeriodStart(request.getPeriodStart());
 
 	    invoice.setTotalHours(request.getTotalHours());
 	    invoice.setSubtotal(request.getSubtotal());
