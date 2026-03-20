@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.DTO.InvoiceSortingRequestDTO;
 import com.example.entity.ManualInvoice;
 
 public interface ManualInvoiceService1 {
@@ -55,5 +56,11 @@ public interface ManualInvoiceService1 {
 
 	//Bhargav 18-03-26
 	public List<ManualInvoice> getPendingInvoicesByAdmin(Long adminId);
+	public Page<ManualInvoice> getPendingInvoicesByAdmin(InvoiceSortingRequestDTO requestDTO) ;
+
 	//Bhargav 18-03-26
+	
+	
+	
+
 }
