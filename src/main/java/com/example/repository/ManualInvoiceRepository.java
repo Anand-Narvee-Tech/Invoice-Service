@@ -156,8 +156,28 @@ public interface ManualInvoiceRepository
 
 	Optional<ManualInvoice> findByInvoiceNumberAndAdminId(String invoiceNumber, Long adminId);
 
-	//Bhargav 18-03-26
-	List<ManualInvoice> findByAdminIdAndStatus(Long adminId, String status);	
-	//Bhargav 18-03-26
+	// Bhargav 20-03-26 
+	List<ManualInvoice> findByAdminIdAndStatusInIgnoreCase(Long adminId, List<String> statuses);	
+	
+	
+	Page<ManualInvoice> findByAdminIdAndStatusInIgnoreCase(Long adminId, List<String> statuses, Pageable pageable);
+
+	
+	@Query("""
+			SELECT m FROM ManualInvoice m
+			WHERE m.adminId = :adminId
+			AND LOWER(m.status) IN :statuses
+			AND (
+			    LOWER(m.consultantName) LIKE CONCAT('%', :search, '%')
+			    OR LOWER(m.customer) LIKE CONCAT('%', :search, '%')
+			    OR LOWER(m.invoiceNumber) LIKE CONCAT('%', :search, '%')
+			)
+			""")
+			Page<ManualInvoice> searchInvoicesByAdmin(
+			        Long adminId,
+			        List<String> statuses,
+			        String search,
+			        Pageable pageable);
+	// Bhargav 20-03-26 
 
 }

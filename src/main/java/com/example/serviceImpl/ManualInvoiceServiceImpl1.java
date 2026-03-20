@@ -28,6 +28,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.DTO.ConsultantDTO;
+import com.example.DTO.InvoiceSortingRequestDTO;
 import com.example.DTO.VendorDTO;
 import com.example.client.ConsultantFeignClient;
 import com.example.client.VendorFeignClient;
@@ -138,6 +139,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		invoice.setRemarks(request.getRemarks());
 		invoice.setPeriodend(request.getPeriodend());
 		invoice.setPeriodStart(request.getPeriodStart());
+		invoice.setDiscount(request.getDiscount());
 
 
 		// ===== Vendor Lookup =====
@@ -568,14 +570,13 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	    // ===== New Fields =====
 	    invoice.setUploadedFileNames(request.getUploadedFileNames());
 	    invoice.setIssuedBy(request.getIssuedBy());
-
 	    invoice.setPaymentAmount(request.getPaymentAmount());
 	    invoice.setPaymentDate(request.getPaymentDate());
 	    invoice.setDueAmount(request.getDueAmount());
 	    invoice.setRemarks(request.getRemarks());
 	    invoice.setPeriodend(request.getPeriodend());
 	    invoice.setPeriodStart(request.getPeriodStart());
-
+        invoice.setDiscount(request.getDiscount());
 	    invoice.setTotalHours(request.getTotalHours());
 	    invoice.setSubtotal(request.getSubtotal());
 	    invoice.setTotal(request.getTotal());
@@ -670,14 +671,76 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	}
 	// Bhargav 17-03-26
 
-	// Bhargav 18-03-26
+	// Bhargav 20-03-26 
 	@Override
 	public List<ManualInvoice> getPendingInvoicesByAdmin(Long adminId) {
-	    return invoiceRepository.findByAdminIdAndStatus(adminId, "Pending");
+	 
+		 List<String> statuses = List.of("Pending", "Partially Paid");
 
+		    return invoiceRepository.findByAdminIdAndStatusInIgnoreCase(adminId, statuses);
+		}
+
+	
+	@Override
+	public Page<ManualInvoice> getPendingInvoicesByAdmin(InvoiceSortingRequestDTO requestDTO) {
+
+	    String search = requestDTO.getSearch();
+	    String sortBy = requestDTO.getSortField();
+	    String sortDir = requestDTO.getSortOrder();
+	    Integer pageNo = requestDTO.getPageNumber();
+	    Integer pageSize = requestDTO.getPageSize();
+	    Long adminId = requestDTO.getAdminId();
+
+	    // ✅ Default handling
+	    if (pageNo == null || pageNo < 0) pageNo = 0;
+	    int zeroBasedPageNo = (pageNo > 0) ? pageNo - 1 : pageNo;
+
+	    if (pageSize == null || pageSize <= 0) pageSize = 10;
+
+	    if (sortBy == null || sortBy.trim().isEmpty()) sortBy = "invoiceDate";
+	    if (sortDir == null || sortDir.trim().isEmpty()) sortDir = "desc";
+
+	    // ✅ Mapping (same as your style)
+	    switch (sortBy.toLowerCase()) {
+	        case "consultantname": sortBy = "consultantName"; break;
+	        case "customer": sortBy = "customer"; break;
+	        case "invoicenumber": sortBy = "invoiceNumber"; break;
+	        case "invoicedate": sortBy = "invoiceDate"; break;
+	        case "duedate": sortBy = "dueDate"; break;
+	        case "paymentdate": sortBy = "paymentDate"; break;
+	        case "paymentamount": sortBy = "paymentAmount"; break;
+	        case "status": sortBy = "status"; break;
+	        case "totalhours": sortBy = "totalHours"; break;
+	        case "total": sortBy = "total"; break;
+	        default: sortBy = "invoiceDate";
+	    }
+
+	    Sort.Direction direction = sortDir.equalsIgnoreCase("desc")
+	            ? Sort.Direction.DESC
+	            : Sort.Direction.ASC;
+
+	    Pageable pageable = PageRequest.of(zeroBasedPageNo, pageSize, Sort.by(direction, sortBy));
+
+	    // ✅ FIXED STATUS (case safe)
+	    List<String> statuses = List.of("pending", "partially paid");
+
+	    boolean hasSearch = search != null && !search.trim().isEmpty();
+
+	    if (hasSearch) {
+	        return invoiceRepository.searchInvoicesByAdmin(
+	                adminId,
+	                statuses,
+	                search.toLowerCase().trim(), // ✅ important
+	                pageable
+	        );
+	    }
+
+	    return invoiceRepository.findByAdminIdAndStatusInIgnoreCase(adminId, statuses, pageable);
 	}
 	
-	// Bhargav 18-03-26
+	
+	
+// Bhargav 20-03-26 
 	
 
 }
