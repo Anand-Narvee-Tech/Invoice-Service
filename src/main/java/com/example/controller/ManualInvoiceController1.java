@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.DTO.InvoiceSortingRequestDTO;
 import com.example.DTO.VendorAddressDTO;
 import com.example.DTO.VendorDTO;
 import com.example.client.VendorFeignClient;
@@ -431,15 +432,32 @@ public class ManualInvoiceController1 {
 	//Bhargav 17-03-26
 	
 	
-	//Bhargav 18-03-26
+	// Bhargav 20-03-26 
 	@GetMapping("/pending-invoices/{adminId}")
 	public ResponseEntity<RestAPIResponse> getPendingInvoices(@PathVariable Long adminId) {
 
 	    List<ManualInvoice> invoices = serviceImpl1.getPendingInvoicesByAdmin(adminId);
 
 	    return ResponseEntity.ok(
-	            new RestAPIResponse("Success", "Pending invoices fetched successfully", invoices)
+	            new RestAPIResponse("Success", "Pending & Partially Paid invoices fetched successfully", invoices)
 	    );
 	}
-	//Bhargav 18-03-26
+	
+	
+	@PostMapping("/pending-invoices/searchAndsorting")
+	public ResponseEntity<RestAPIResponse> getPendingInvoices(
+	        @RequestBody InvoiceSortingRequestDTO requestDTO) {
+
+	    Page<ManualInvoice> invoices =
+	            serviceImpl1.getPendingInvoicesByAdmin(requestDTO);
+
+	    return ResponseEntity.ok(
+	            new RestAPIResponse(
+	                    "Success",
+	                    "Pending & Partially Paid invoices fetched successfully",
+	                    invoices.getContent()
+	            )
+	    );
+	}
+	// Bhargav 20-03-26 
 }

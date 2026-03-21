@@ -85,6 +85,9 @@ public class ManualInvoice {
 
 	@Column(name = "paymentAmount")
 	private String paymentAmount;
+	
+	@Column(name = "discount")
+	private Double discount = 0.0;
 
 	@Column(name = "paymentDate")
 	private LocalDate paymentDate;
