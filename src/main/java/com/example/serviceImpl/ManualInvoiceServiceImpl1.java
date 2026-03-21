@@ -64,35 +64,47 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	public ManualInvoice saveInvoice(ManualInvoice request) {
 
 		ManualInvoice invoice;
-
 		String poNumber = request.getPoNumber() != null ? request.getPoNumber().trim() : null;
+
+		// convert empty to null
+		if (poNumber != null && poNumber.isEmpty()) {
+		    poNumber = null;
+		}
 
 		// ===== CREATE vs UPDATE =====
 		if (request.getId() != null && request.getId() > 0) {
 
-			invoice = invoiceRepository.findByIdAndAdminId(request.getId(), request.getAdminId())
-					.orElseThrow(() -> new RuntimeException("Invoice not found or unauthorized access"));
+		    invoice = invoiceRepository.findByIdAndAdminId(request.getId(), request.getAdminId())
+		            .orElseThrow(() -> new RuntimeException("Invoice not found or unauthorized access"));
 
-			if (poNumber != null && !poNumber.isEmpty()) {
-				if (invoiceRepository.existsByPoNumberAndIdNot(poNumber, invoice.getId())) {
-					throw new RuntimeException("PO Number already exists");
-				}
-			}
+		    // UPDATE validation
+		    if (poNumber != null &&
+		        invoiceRepository.existsByPoNumberAndConsultantIdNotAndIdNot(
+		                poNumber,
+		                request.getConsultantId(),
+		                invoice.getId())) {
 
-			invoice.clearItems();
+		        throw new RuntimeException("PO Number already used by another consultant");
+		    }
+
+		    invoice.clearItems();
 
 		} else {
 
-			if (poNumber != null && !poNumber.isEmpty()) {
-				if (invoiceRepository.existsByPoNumber(poNumber)) {
-					throw new RuntimeException("PO Number already exists");
-				}
-			}
+		    // CREATE validation
+		    if (poNumber != null &&
+		        invoiceRepository.existsByPoNumberAndConsultantIdNot(
+		                poNumber,
+		                request.getConsultantId())) {
 
-			invoice = new ManualInvoice();
-			invoice.setCreatedAt(LocalDateTime.now());
+		        throw new RuntimeException("PO Number already used by another consultant");
+		    }
+
+		    invoice = new ManualInvoice();
+		    invoice.setCreatedAt(LocalDateTime.now());
 		}
 
+		invoice.setPoNumber(poNumber);
 		// ===== Validate Consultant =====
 		if (request.getConsultantId() != null) {
 
@@ -535,11 +547,17 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 	    ManualInvoice invoice = invoiceRepository.findById(id)
 	            .orElseThrow(() -> new RuntimeException("Invoice not found with id: " + id));
+	    String poNumber = request.getPoNumber();
 
-	    if (invoiceRepository.existsByPoNumberAndIdNot(request.getPoNumber(), invoice.getId())) {
-	        throw new RuntimeException("PO Number already exists");
+	    poNumber = (poNumber != null && !poNumber.trim().isEmpty()) ? poNumber.trim() : null;
+
+	    if (poNumber != null &&
+	        invoiceRepository.existsByPoNumberAndConsultantIdNot(
+	            poNumber, request.getConsultantId())) {
+
+	        throw new RuntimeException("PO Number already used by another consultant");
 	    }
-
+	    
 	    // ===== Basic Fields =====
 	    invoice.setCustomer(request.getCustomer());
 		//invoice.setCustomerVendorId(request.getCustomerVendorId());
