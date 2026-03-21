@@ -180,4 +180,10 @@ public interface ManualInvoiceRepository
 			        Pageable pageable);
 	// Bhargav 20-03-26 
 
+	boolean existsByPoNumberAndConsultantIdNot(String poNumber, Long consultantId);
+
+	boolean existsByPoNumberAndConsultantIdNotAndIdNot(String poNumber, Long consultantId, Long id);
+
+
+
 }
