@@ -542,6 +542,8 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 	    // ===== Basic Fields =====
 	    invoice.setCustomer(request.getCustomer());
+		//invoice.setCustomerVendorId(request.getCustomerVendorId());
+
 	    invoice.setCustomerEmail(request.getCustomerEmail());
 	    invoice.setCustomerPhone(request.getCustomerPhone());
 
@@ -590,7 +592,38 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	            invoice.addItem(item);
 	        }
 	    }
+	    
+	  //Bhargav 21-03-26
 
+		if (request.getCustomer() != null && !request.getCustomer().isBlank()) {
+
+			List<VendorDTO> vendors = vendorFeignClient.searchVendors(request.getCustomer());
+
+			if (!vendors.isEmpty()) {
+
+				VendorDTO vendor = vendors.get(0);
+
+				invoice.setCustomerVendorId(vendor.getVendorId());
+				invoice.setCustomer(vendor.getVendorName());
+
+				if (request.getCustomerEmail() != null && !request.getCustomerEmail().isBlank()) {
+					invoice.setCustomerEmail(request.getCustomerEmail());
+				} else {
+					invoice.setCustomerEmail(vendor.getEmail());
+				}
+
+				if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()) {
+					invoice.setCustomerPhone(request.getCustomerPhone());
+				} else {
+					invoice.setCustomerPhone(vendor.getPhoneNumber());
+				}
+
+			} else {
+				throw new RuntimeException("Vendor not found for customer: " + request.getCustomer());
+			}
+		}
+//Bhargav 21-03-26
+		
 	    // ===== Recalculate Totals =====
 	    calculateTotalsAndDueDate(invoice);
 
