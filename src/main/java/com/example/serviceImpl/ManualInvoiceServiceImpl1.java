@@ -61,7 +61,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 	@Override
 	@Transactional
-	public ManualInvoice saveInvoice(ManualInvoice request) {
+	public ManualInvoice saveInvoice(ManualInvoice request){
 
 		ManualInvoice invoice;
 		String poNumber = request.getPoNumber() != null ? request.getPoNumber().trim() : null;
@@ -108,19 +108,35 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		// ===== Validate Consultant =====
 		if (request.getConsultantId() != null) {
 
-			ConsultantDTO consultant = consultantFeignClient.getConsultant(request.getConsultantId());
+		    try {
 
-			if (consultant == null) {
-				throw new RuntimeException("Consultant not found with id: " + request.getConsultantId());
-			}
+		        ConsultantDTO consultant = consultantFeignClient.getConsultant(request.getConsultantId());
 
-			if (request.getAdminId() != null && !consultant.getAdminId().equals(request.getAdminId())) {
-				throw new RuntimeException("Unauthorized consultant access");
-			}
+		        if (consultant == null) {
+		            throw new RuntimeException("Consultant not found with id: " + request.getConsultantId());
+		        }
 
-			invoice.setConsultantId(consultant.getId());
-			invoice.setConsultantName(consultant.getFullName());
-			invoice.setAdminId(consultant.getAdminId());
+		        if (request.getAdminId() != null && !consultant.getAdminId().equals(request.getAdminId())) {
+		            throw new RuntimeException("Unauthorized consultant access");
+		        }
+
+		        invoice.setConsultantId(consultant.getId());
+		        invoice.setConsultantName(consultant.getFullName());
+		        invoice.setAdminId(consultant.getAdminId());
+
+		    } catch (feign.FeignException.Unauthorized e) {
+
+		        throw new RuntimeException("Invalid or expired token. Please login again.");
+
+		    } catch (feign.FeignException.NotFound e) {
+
+		        throw new RuntimeException("Consultant not found with id: " + request.getConsultantId());
+
+		    } catch (feign.FeignException e) {
+
+		        throw new RuntimeException("Unable to fetch consultant details. Please try again.");
+
+		    }
 		}
 
 		// ===== Basic Fields =====
@@ -141,6 +157,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		invoice.setTermsAndConditions(request.getTermsAndConditions());
 		invoice.setStatus(request.getStatus());
 		invoice.setCurrency(request.getCurrency());
+		invoice.setVendorType(request.getVendorType());
 
 		// ===== New Fields =====
 		invoice.setUploadedFileNames(request.getUploadedFileNames());
@@ -152,7 +169,8 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 		invoice.setPeriodend(request.getPeriodend());
 		invoice.setPeriodStart(request.getPeriodStart());
 		invoice.setDiscount(request.getDiscount());
-
+		invoice.setPaidDate(request.getPaidDate());
+		invoice.setPaidAmount(request.getPaidAmount());
 
 		// ===== Vendor Lookup =====
 		if (request.getCustomer() != null && !request.getCustomer().isBlank()) {
@@ -165,6 +183,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 				invoice.setCustomerVendorId(vendor.getVendorId());
 				invoice.setCustomer(vendor.getVendorName());
+				invoice.setVendorType(invoice.getVendorType());
 
 				if (request.getCustomerEmail() != null && !request.getCustomerEmail().isBlank()) {
 					invoice.setCustomerEmail(request.getCustomerEmail());
@@ -195,25 +214,42 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 		invoice.setUpdatedAt(LocalDateTime.now());
 
-		// ===== Generate Invoice Number =====
-		if (invoice.getInvoiceNumber() == null) {
+		    // ===== Generate Invoice Number =====
+			try {
 
-			LocalDate today = LocalDate.now();
-			String year = String.valueOf(today.getYear()).substring(2);
+			    if (invoice.getInvoiceNumber() == null) {
 
-			Long consultantId = invoice.getConsultantId() != null ? invoice.getConsultantId() : 0L;
-			String consultant = String.format("%03d", consultantId);
+			        LocalDate today = LocalDate.now();
+			        String year = String.valueOf(today.getYear()).substring(2);
 
-			invoice = invoiceRepository.save(invoice);
+			        Long consultantId = invoice.getConsultantId() != null ? invoice.getConsultantId() : 0L;
+			        String consultant = String.format("%03d", consultantId);
 
-			String invoiceId = String.format("%03d", invoice.getId());
+			        invoice = invoiceRepository.save(invoice);
 
-			invoice.setInvoiceNumber("INV-" + year + consultant + invoiceId);
-		}
+			        String invoiceId = String.format("%03d", invoice.getId());
 
-		return invoiceRepository.save(invoice);
+			        invoice.setInvoiceNumber("INV-" + year + consultant + invoiceId);
+			    }
+
+			    return invoiceRepository.save(invoice);
+
+			} catch (org.springframework.dao.DataIntegrityViolationException e) {
+
+			    String error = e.getMessage();
+
+			    if (error != null && error.contains("po_number")) {
+			        throw new RuntimeException("PO Number already exists.");
+			    }
+
+			    if (error != null && error.contains("manual_invoices_pkey")) {
+			        throw new RuntimeException("Invoice already exists. Please refresh and try again.");
+			    }
+
+			    throw new RuntimeException("Database error while saving invoice.");
+			}
 	}
-
+		
 	private void calculateTotalsAndDueDate(ManualInvoice invoice) {
 
 		double subtotal = 0.0;
@@ -601,7 +637,9 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	    invoice.setSubtotal(request.getSubtotal());
 	    invoice.setTotal(request.getTotal());
 	    invoice.setAmountDue(request.getAmountDue());
-
+	    invoice.setPaidDate(request.getPaidDate());
+	    invoice.setPaidAmount(request.getPaidAmount());
+	    invoice.setVendorType(request.getVendorType());
 	    // ===== Update Items =====
 	    invoice.clearItems();
 
@@ -622,7 +660,15 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 				VendorDTO vendor = vendors.get(0);
 
 				invoice.setCustomerVendorId(vendor.getVendorId());
+				invoice.setVendorType(vendor.getVendorType());
 				invoice.setCustomer(vendor.getVendorName());
+				
+				 // Vendor Type Fix
+		        if (vendor.getVendorType() != null && !vendor.getVendorType().isBlank()) {
+		            invoice.setVendorType(vendor.getVendorType());
+		        } else if (request.getVendorType() != null && !request.getVendorType().isBlank()) {
+		            invoice.setVendorType(request.getVendorType());
+		        }
 
 				if (request.getCustomerEmail() != null && !request.getCustomerEmail().isBlank()) {
 					invoice.setCustomerEmail(request.getCustomerEmail());
@@ -646,7 +692,6 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	    calculateTotalsAndDueDate(invoice);
 
 	    invoice.setUpdatedAt(LocalDateTime.now());
-
 	    return invoiceRepository.save(invoice);
 	}
 
@@ -726,7 +771,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	@Override
 	public List<ManualInvoice> getPendingInvoicesByAdmin(Long adminId) {
 	 
-		 List<String> statuses = List.of("Pending", "Partially Paid");
+		 List<String> statuses = List.of("Pending", "partially received");
 
 		    return invoiceRepository.findByAdminIdAndStatusInIgnoreCase(adminId, statuses);
 		}
@@ -773,7 +818,7 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 	    Pageable pageable = PageRequest.of(zeroBasedPageNo, pageSize, Sort.by(direction, sortBy));
 
 	    // ✅ FIXED STATUS (case safe)
-	    List<String> statuses = List.of("pending", "partially paid");
+	    List<String> statuses = List.of("pending", "partially received");
 
 	    boolean hasSearch = search != null && !search.trim().isEmpty();
 
@@ -788,10 +833,71 @@ public class ManualInvoiceServiceImpl1 implements ManualInvoiceService1 {
 
 	    return invoiceRepository.findByAdminIdAndStatusInIgnoreCase(adminId, statuses, pageable);
 	}
-	
-	
-	
+
 // Bhargav 20-03-26 
 	
+	@Override
+	public Page<ManualInvoice> getInvoicesByAdminAndVendorType(
+	        InvoiceSortingRequestDTO requestDTO) {
 
+	    String search = requestDTO.getSearch();
+	    String sortBy = requestDTO.getSortField();
+	    String sortDir = requestDTO.getSortOrder();
+	    Integer pageNo = requestDTO.getPageNumber();
+	    Integer pageSize = requestDTO.getPageSize();
+	    Long adminId = requestDTO.getAdminId();
+	    String vendorType = requestDTO.getVendorType();
+
+	    // ✅ Default vendorType (only payable if not passed)
+	    if (vendorType == null || vendorType.trim().isEmpty()) {
+	        vendorType = "payable";
+	    }
+
+	    if (pageNo == null || pageNo < 0) pageNo = 0;
+	    int zeroBasedPageNo = (pageNo > 0) ? pageNo - 1 : pageNo;
+
+	    if (pageSize == null || pageSize <= 0) pageSize = 10;
+
+	    if (sortBy == null || sortBy.trim().isEmpty()) sortBy = "invoiceDate";
+	    if (sortDir == null || sortDir.trim().isEmpty()) sortDir = "desc";
+
+	    switch (sortBy.toLowerCase()) {
+	        case "consultantname": sortBy = "consultantName"; break;
+	        case "customer": sortBy = "customer"; break;
+	        case "invoicenumber": sortBy = "invoiceNumber"; break;
+	        case "invoicedate": sortBy = "invoiceDate"; break;
+	        case "duedate": sortBy = "dueDate"; break;
+	        case "paymentdate": sortBy = "paymentDate"; break;
+	        case "paymentamount": sortBy = "paymentAmount"; break;
+	        case "paidAmount": sortBy = "paidAmount"; break;
+	        case "paidDate": sortBy = "paidDate"; break;
+	        case "vendorType": sortBy = "vendorType"; break;
+	        case "status": sortBy = "status"; break;
+	        case "total": sortBy = "total"; break;
+	        default: sortBy = "invoiceDate";
+	    }
+
+	    Sort.Direction direction = sortDir.equalsIgnoreCase("desc")
+	            ? Sort.Direction.DESC
+	            : Sort.Direction.ASC;
+
+	    Pageable pageable = PageRequest.of(zeroBasedPageNo, pageSize, Sort.by(direction, sortBy));
+
+	    boolean hasSearch = search != null && !search.trim().isEmpty();
+
+	    if (hasSearch) {
+	        return invoiceRepository.searchInvoicesByAdminAndVendorType(
+	                adminId,
+	                vendorType.toLowerCase().trim(),
+	                search.toLowerCase().trim(),
+	                pageable
+	        );
+	    }
+
+	    return invoiceRepository.findByAdminIdAndVendorTypeIgnoreCase(
+	            adminId,
+	            vendorType,
+	            pageable
+	    );
+	}
 }

@@ -11,4 +11,6 @@ public class InvoiceSortingRequestDTO {
 	private Integer pageNumber;
 	private Integer pageSize;
 	private Long adminId;
+    private String vendorType;
+
 }

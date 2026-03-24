@@ -185,5 +185,28 @@ public interface ManualInvoiceRepository
 	boolean existsByPoNumberAndConsultantIdNotAndIdNot(String poNumber, Long consultantId, Long id);
 
 
+	
+	@Query("""
+			SELECT i FROM ManualInvoice i
+			WHERE i.adminId = :adminId
+			AND LOWER(i.vendorType) = LOWER(:vendorType)
+			AND (
+			LOWER(i.consultantName) LIKE %:search%
+			OR LOWER(i.customer) LIKE %:search%
+			OR LOWER(i.invoiceNumber) LIKE %:search%
+			)
+			""")
+			Page<ManualInvoice> searchInvoicesByAdminAndVendorType(
+			        Long adminId,
+			        String vendorType,
+			        String search,
+			        Pageable pageable
+			);
 
+	Page<ManualInvoice> findByAdminIdAndVendorTypeIgnoreCase(
+	        Long adminId,
+	        String vendorType,
+	        Pageable pageable
+	);
+	
 }

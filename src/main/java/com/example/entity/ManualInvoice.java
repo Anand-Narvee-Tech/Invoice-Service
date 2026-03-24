@@ -12,11 +12,14 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "manual_invoices", uniqueConstraints = { @UniqueConstraint(columnNames = "po_number") })
-@Data
+@Setter
+@Getter
 @NoArgsConstructor
 @AllArgsConstructor
 public class ManualInvoice {
@@ -104,7 +107,16 @@ public class ManualInvoice {
 	@Column(name = "periodend")
 	private LocalDate periodend;
 	
-	// Bhargav 17/03/26
+	@Column(name = "paidAmount")
+	private String paidAmount;
+	
+	@Column(name = "paidDate")
+	private LocalDate paidDate;
+	
+	@Column(name = "vendorType")
+	private String vendorType;
+	
+	// Bhargav 23/03/26
 
 	// Billing Address
 	@Embedded

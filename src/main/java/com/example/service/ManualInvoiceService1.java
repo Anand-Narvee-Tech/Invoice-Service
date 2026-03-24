@@ -59,7 +59,7 @@ public interface ManualInvoiceService1 {
 	public Page<ManualInvoice> getPendingInvoicesByAdmin(InvoiceSortingRequestDTO requestDTO) ;
 
 	//Bhargav 18-03-26
-	
+	public Page<ManualInvoice> getInvoicesByAdminAndVendorType(InvoiceSortingRequestDTO requestDTO);
 	
 	
 
