@@ -71,11 +71,16 @@ public class ManualInvoiceController1 {
 
 		try {
 			ManualInvoice invoice = objectMapper.convertValue(payload, ManualInvoice.class);
-
+			
 			// FIX frontend bug: id = ""
 			if (payload.get("id") == null || payload.get("id").toString().isBlank()) {
 				invoice.setId(null);
 			}
+			
+			 // ✅ FIX vendorType mapping
+	        if (payload.get("vendorType") != null) {
+	            invoice.setVendorType(payload.get("vendorType").toString());
+	        }
 
 			// Shipping address
 			Object shippingObj = payload.get("shippingAddress");
@@ -349,7 +354,6 @@ public class ManualInvoiceController1 {
 	@PutMapping("/update/{id}")
 	public ResponseEntity<RestAPIResponse> updateManualInvoice(@PathVariable Long id,
 			@RequestBody ManualInvoice invoice) {
-
 		try {
 			ManualInvoice updatedInvoice = serviceImpl1.updateManualInvoice(id, invoice);
 			return ResponseEntity.ok(new RestAPIResponse("Success", "Invoice updated successfully", updatedInvoice));
@@ -454,10 +458,27 @@ public class ManualInvoiceController1 {
 	    return ResponseEntity.ok(
 	            new RestAPIResponse(
 	                    "Success",
-	                    "Pending & Partially Paid invoices fetched successfully",
+	                    "Pending & Partially received invoices fetched successfully",
 	                    invoices.getContent()
 	            )
 	    );
 	}
 	// Bhargav 20-03-26 
+	
+	@PostMapping("/invoices/searchAndSorting")
+	public ResponseEntity<RestAPIResponse> getInvoicesByAdminAndVendorType(
+	        @RequestBody InvoiceSortingRequestDTO requestDTO) {
+
+	    Page<ManualInvoice> invoices =
+	            serviceImpl1.getInvoicesByAdminAndVendorType(requestDTO);
+
+	    return ResponseEntity.ok(
+	            new RestAPIResponse(
+	                    "Success",
+	                    "Invoices fetched successfully",
+	                    invoices.getContent()
+	            )
+	    );
+	}
+	
 }
