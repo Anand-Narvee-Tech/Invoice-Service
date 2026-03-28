@@ -116,6 +116,9 @@ public class ManualInvoice {
 	@Column(name = "vendorType")
 	private String vendorType;
 	
+	@Column(name = "period")
+	private String period;
+	
 	// Bhargav 23/03/26
 
 	// Billing Address
